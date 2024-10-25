@@ -6,4 +6,4 @@ plotly
 opencv-python
 scipy
 seaborn
-streamlit
+flask
