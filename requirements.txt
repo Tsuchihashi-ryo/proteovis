@@ -7,3 +7,5 @@ opencv-python
 scipy
 seaborn
 flask
+psutil
+requests

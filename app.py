@@ -8,7 +8,7 @@ import pandas as pd
 import seaborn as sns
 from utils import *
 
-pio.orca.config.executable = 'C:/Users/jb60386/AppData/Local/Programs/orca/orca.exe'
+pio.orca.config.executable = 'C:/Users/jb60764/AppData/Local/Programs/orca/orca.exe'
 app = Flask(__name__,static_folder='./static', static_url_path='/static')
 app.secret_key = b'fewgagaehrae'
 app.jinja_env.auto_reload = True
