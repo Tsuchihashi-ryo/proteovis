@@ -158,10 +158,11 @@ def find_phase(df):
   # 最後のグループの中央値を追加
   groups.append(np.median(current_group))
 
-  df = pd.DataFrame(columns=["Start_mL","End_mL"])
+  df = pd.DataFrame(columns=["Phase", "Start_mL","End_mL"])
 
   for i in range(len(groups)-1):
-    df.loc[i] = groups[i],groups[i+1]
+    df.loc[i] = f"Phase {i}",groups[i],groups[i+1]
+
   
   return df
 
