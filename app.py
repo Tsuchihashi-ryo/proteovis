@@ -99,11 +99,11 @@ def akta(experiment_name,run_name):
     analysis_dir = os.path.join(exp_dir, "analysis")
     data_dir = os.path.join(analysis_dir, f"{run_name}")
 
-    sample_html = get_samples(analysis_dir)
+    sample_list = get_samples(analysis_dir)
 
     fig_html = get_akta_fig(data_dir)
 
-    return render_template('template.html',files=sample_html,data=fig_html)
+    return render_template('phase.html',sample_list=sample_list,akta_fig=fig_html)
 
 
 

@@ -34,7 +34,7 @@ def get_page_image(path):
         return page_fig
 
 
-def sampling_data2html(dir):
+def sampling_data(dir):
         name = os.path.basename(dir)
 
         image_path = os.path.join(dir[1:],"icon.png").replace("\\","/")
@@ -44,15 +44,7 @@ def sampling_data2html(dir):
         else:
                 file_type = "PAGE"
 
-        template_html =  f"""
-        <div class="bg-blue-100 p-4 rounded-lg">
-            <img src="{image_path}">
-            <p class="text-sm font-medium">File: {name}</p>
-            <p class="text-sm">Type: {file_type}</p>
-        </div>
-        """
-
-        return template_html
+        return {"image_path":image_path,"name":name,"file_type":file_type}
 
 
 def get_samples(dir):
@@ -61,12 +53,10 @@ def get_samples(dir):
     sample_list = []
 
     for dir in analysis_dirs:
-        sample_html = sampling_data2html(dir)
-        sample_list.append(sample_html)
+        sample_dic = sampling_data(dir)
+        sample_list.append(sample_dic)
 
-    sample_html = "".join(sample_list)
-
-    return sample_html
+    return sample_list
 
 
 def get_akta_fig(dir,first="UV 1_280",second="Cond",third=None,forth=None):
