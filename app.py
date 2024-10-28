@@ -8,7 +8,7 @@ import pandas as pd
 import seaborn as sns
 from utils import *
 
-pio.orca.config.executable = 'C:/Users/jb60764/AppData/Local/Programs/orca/orca.exe'
+pio.orca.config.executable = 'C:/Users/jb60386/AppData/Local/Programs/orca/orca.exe'
 app = Flask(__name__,static_folder='./static', static_url_path='/static')
 app.secret_key = b'fewgagaehrae'
 app.jinja_env.auto_reload = True
@@ -93,7 +93,7 @@ def experiment(experiment_name):
 
     return render_template('template.html',files=sample_html)
 
-@app.route(f"/experiment/<experiment_name>/AKTA/<run_name>")
+@app.route(f"/experiment/<experiment_name>/AKTA/<run_name>/phase")
 def akta(experiment_name,run_name):
     exp_dir = os.path.join(app.config['UPLOAD_FOLDER'], f"{experiment_name}")
     analysis_dir = os.path.join(exp_dir, "analysis")

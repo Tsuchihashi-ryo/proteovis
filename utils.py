@@ -78,7 +78,7 @@ def get_akta_fig(dir,first="UV 1_280",second="Cond",third=None,forth=None):
     frac_df = pd.read_csv(frac_path,index_col=0)
     phase_df = pd.read_csv(phase_path,index_col=0)
 
-    fig = pv.graph.unicorn_ploty_graph(akta_df,first=first,second=second,third=None,forth=None)
+    fig = pv.graph.unicorn_ploty_graph(akta_df,first=first)
 
     fig,use_color_palette = pv.graph.annotate_fraction(fig,frac_df,phase_df)
 
