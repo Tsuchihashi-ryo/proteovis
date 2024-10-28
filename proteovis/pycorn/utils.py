@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import seaborn as sns
 
 
 def get_series_from_data(data, data_key_list,interpolate=True,lightweighting=10):
@@ -49,7 +50,7 @@ def get_series_from_data(data, data_key_list,interpolate=True,lightweighting=10)
     return df
 
 
-def get_fraction_rectangle(frac_df):
+def get_fraction_rectangle(frac_df,palette="rainbow"):
     """
     AKTA chromatogramデータからFractionごとのindexを作成する関数。Fractions列は開始点のみで、残りはNaN。
 
@@ -112,7 +113,13 @@ def get_fraction_rectangle(frac_df):
             print(f"Error processing fraction starting at {start}. Check your data for inconsistencies.")
             return None
 
-    return pd.DataFrame(fraction_indices)
+    frac_df = pd.DataFrame(fraction_indices)
+
+    palette = sns.color_palette(palette, len(frac_df))
+
+    frac_df["Color_code"] = list(map(palette2hex,palette))
+
+    return frac_df
 
 
 def pooling_fraction(df,pooling,name="pool"):
@@ -125,9 +132,10 @@ def pooling_fraction(df,pooling,name="pool"):
   start_ml = pool["Start_mL"].min()
   end_ml = pool["End_mL"].max()
   max_uv = pool["Max_UV"].max()
+  color_code = pool["Color_code"].iloc[len(pool)//2]
 
   df = df.loc[[i for i in df.index if not i in pool.index]]
-  df.loc[pool.index[0]] = (name,start_ml,end_ml,max_uv)
+  df.loc[pool.index[0]] = (name,start_ml,end_ml,max_uv,color_code)
   return df.sort_values("Start_mL")
 
 
@@ -158,13 +166,27 @@ def find_phase(df):
   # 最後のグループの中央値を追加
   groups.append(np.median(current_group))
 
-  df = pd.DataFrame(columns=["Phase", "Start_mL","End_mL"])
+  df = pd.DataFrame(columns=["Phase", "Start_mL","End_mL","Color_code"])
+  palette = sns.color_palette(n_colors=len(groups))
 
   for i in range(len(groups)-1):
-    df.loc[i] = f"Phase {i}",groups[i],groups[i+1]
+    color = palette2hex(palette[i])
+    df.loc[i] = f"Phase {i}",groups[i],groups[i+1],color
+    
 
   
   return df
+
+
+def palette2hex(palette_color):
+  r = int(palette_color[0]*255)
+  g = int(palette_color[1]*255)
+  b = int(palette_color[2]*255)
+
+  color_code = f'#{r:02x}{g:02x}{b:02x}'
+  color_code = color_code.replace('0x', '')
+  return color_code
+
 
 
 

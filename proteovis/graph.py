@@ -8,173 +8,284 @@ from pypage import pypage
 
 
 
+def unicorn_ploty_graph(df, first="UV 1_280", second="Cond", third="pH", forth="Conc B", dropdowns=None):
+    uv_color = "#1f77b4"
+    ph_color = "#2ca772"
+    cond_color = "#f29d5f"
+    concb_color = "#b5b5b5"
 
-def unicorn_ploty_graph(df,first="UV 1_280",second="Cond",third="pH",forth="Conc B"):
-  uv_color = "#1f77b4"
-  ph_color = "#2ca772"
-  cond_color = "#f29d5f"
-  concb_color = "#b5b5b5"
+    UV = [c for c in df.columns if c[:2]=="UV"]
 
-  UV = [c for c in df.columns if c[:2]=="UV"]
+    axis_label = {
+        UV[0]:f"UV {UV[0].split('_')[-1]}nm (mAU)",
+        UV[1]:f"UV {UV[1].split('_')[-1]}nm (mAU)",
+        UV[2]:f"UV {UV[2].split('_')[-1]}nm (mAU)",
+        'Cond':"Conductivity (mS/cm)",
+        'Conc B':"B Concentration (%)",
+        'pH':"pH",
+        'System flow':"System flow (mL/min)",
+        'Sample flow':"System flow (mL/min)",
+        'PreC pressure':"PreC pressure (MPa)",
+        'System pressure':"System pressure (MPa)",
+        'Sample pressure':"Sample pressure (MPa)",
+    }
 
-  axis_label = {
-    UV[0]:f"UV {UV[0].split('_')[-1]}nm (mAU)",
-    UV[1]:f"UV {UV[1].split('_')[-1]}nm (mAU)",
-    UV[2]:f"UV {UV[2].split('_')[-1]}nm (mAU)",
-    'Cond':"Conductivity (mS/cm)",
-    'Conc B':"B Concentration (%)", 
-    'pH':"pH",
-    'System flow':"System flow (mL/min)",
-    'Sample flow':"System flow (mL/min)",
-    'PreC pressure':"PreC pressure (MPa)",
-    'System pressure':"System pressure (MPa)",
-    'Sample pressure':"Sample pressure (MPa)",
-  }
+    if not dropdowns:
+        dropdowns = list(axis_label.keys())
 
+    fig = go.Figure()
 
-
-  fig = go.Figure()
-
-  fig.add_trace(go.Scatter(
-      x=df["mL"],
-      y=df[first],
-      yaxis="y",
-      line=dict(
-              color=uv_color
-          ),
-      fill = "tozeroy",
-      name=axis_label[first]
-  ))
-  fig.update_layout(
-      xaxis=dict(
-          domain=[0.05, 0.85],
-          title="mL",
-      ),
-      yaxis=dict(
-          title=axis_label[first],
-          titlefont=dict(
-              color=uv_color
-          ),
-          tickfont=dict(
-              color=uv_color
-          )
-          )
-      )
-  
-  if second:
+    # 初期トレースの追加
     fig.add_trace(go.Scatter(
         x=df["mL"],
-        y=df[second],
-        yaxis="y2",
-        line=dict(
-                color=cond_color
-            ),
-        name=axis_label[second]
+        y=df[first],
+        yaxis="y",
+        line=dict(color=uv_color),
+        fill="tozeroy",
+        name=axis_label[first]
     ))
 
     fig.update_layout(
+        xaxis=dict(
+            domain=[0.05, 0.85],
+            title="mL",
+        ),
+        yaxis=dict(
+            title=axis_label[first],
+            titlefont=dict(color=uv_color),
+            tickfont=dict(color=uv_color)
+        )
+    )
+
+    if second:
+        fig.add_trace(go.Scatter(
+            x=df["mL"],
+            y=df[second],
+            yaxis="y2",
+            line=dict(color=cond_color),
+            name=axis_label[second]
+        ))
+
+        fig.update_layout(
             yaxis2=dict(
-          title=axis_label[second],
-          titlefont=dict(
-              color=cond_color
-          ),
-          tickfont=dict(
-              color=cond_color
-          ),
-          anchor="x",
-          side="right",
-          overlaying="y")
-    )
+                title=axis_label[second],
+                titlefont=dict(color=cond_color),
+                tickfont=dict(color=cond_color),
+                anchor="x",
+                side="right",
+                overlaying="y"
+            )
+        )
+
+    if third:
+        fig.add_trace(go.Scatter(
+            x=df["mL"],
+            y=df[third],
+            yaxis="y3",
+            line=dict(color=ph_color),
+            name=axis_label[third]
+        ))
+
+        fig.update_layout(
+            yaxis3=dict(
+                title=axis_label[third],
+                titlefont=dict(color=ph_color),
+                tickfont=dict(color=ph_color),
+                anchor="free",
+                side="right",
+                overlaying="y",
+                autoshift=True
+            )
+        )
+
+    if forth:
+        fig.add_trace(go.Scatter(
+            x=df["mL"],
+            y=df[forth],
+            yaxis="y4",
+            name=axis_label[forth],
+            line=dict(color=concb_color),
+        ))
+
+        fig.update_layout(
+            yaxis4=dict(
+                title=axis_label[forth],
+                titlefont=dict(color=concb_color),
+                tickfont=dict(color=concb_color),
+                anchor="free",
+                side="right",
+                overlaying="y",
+                autoshift=True
+            ),
+        )
+
+    # ドロップダウンメニューの作成
+    updatemenus = []
+
+    def none_button(i):
+      return [dict(
+        label="None",
+        method="update",
+        args=[{"y":[[]]},{f"yaxis{i+1}": {"visible": False}},[i],],
+    )]
+
+
+    # Y1軸のドロップダウン
+    updatemenus.append(dict(
+        buttons=[dict(
+            args=[{
+                'y': [df[col].tolist()],
+                'name': [axis_label[col]]
+            },
+                  {"yaxis":dict(
+            title=axis_label[col],
+            titlefont=dict(color=uv_color),
+            tickfont=dict(color=uv_color)
+        )},
+                  [0]],  # トレースのインデックスを指定
+            label=axis_label[col],
+            method='update',
+        ) for col in dropdowns],
+        direction="down",
+        showactive=True,
+        x=0.1,
+        xanchor="center",
+        y=1.05,
+        yanchor="bottom",
+        font=dict(size=12)
+    ))
+
+    # Y2軸のドロップダウン
+    updatemenus.append(dict(
+        buttons=[dict(
+            args=[{
+                'y': [df[col].tolist()],
+                'name': [axis_label[col]]
+            },
+              {'yaxis2': dict(
+            title=axis_label[col],
+            titlefont=dict(color=cond_color),
+            tickfont=dict(color=cond_color),
+            anchor="x",
+            side="right",
+            overlaying="y"
+        )},
+              [1]], # トレースのインデックスを指定
+            label=axis_label[col],
+            method='update'
+        ) for col in dropdowns] + none_button(1),
+        direction="down",
+        showactive=True,
+        x=0.35,
+        xanchor="center",
+        y=1.05,
+        yanchor="bottom",
+        font=dict(size=12)
+    ))
+
+    # Y3軸のドロップダウン
+
+    updatemenus.append(dict(
+        buttons=[dict(
+            args=[{
+                'y': [df[col].tolist()],
+                'name': [axis_label[col]]},
+                {'yaxis3':dict(
+            title=axis_label[col],
+            titlefont=dict(color=ph_color),
+            tickfont=dict(color=ph_color),
+            anchor="free",
+            side="right",
+            overlaying="y",
+            autoshift=True
+        )},
+              [2],],  # トレースのインデックスを指定
+            label=axis_label[col],
+            method='update'
+        ) for col in dropdowns] + none_button(2)
+        ,
+        direction="down",
+        showactive=True,
+        x=0.6,
+        xanchor="center",
+        y=1.05,
+        yanchor="bottom",
+        font=dict(size=12)
+    ))
+
+    # Y4軸のドロップダウン
+    updatemenus.append(dict(
+        buttons=[dict(
+            args=[{
+                'y': [df[col].tolist()],
+                'name': [axis_label[col]]
+            },
+                  {"yaxis4":dict(
+            title=axis_label[col],
+            titlefont=dict(color=concb_color),
+            tickfont=dict(color=concb_color),
+            anchor="free",
+            side="right",
+            overlaying="y",
+            autoshift=True
+        )},
+                    [3]],  # トレースのインデックスを指定
+            label=axis_label[col],
+            method='update'
+        ) for col in dropdowns] + none_button(3),
+        direction="down",
+        showactive=True,
+        x=0.85,
+        xanchor="center",
+        y=1.05,
+        yanchor="bottom",
+        font=dict(size=12)
+    ))
+
+    axis_texts = []
+    for i,y in enumerate(["y","y2","y3","y4"]):
+      fig.add_annotation(dict(
+                        x= 0.1 + i*0.25,
+                        y=1.2,
+                        xref="paper",
+                        yref="paper",
+                        text=y,
+                        align='center',
+                        showarrow=False,
+                        yanchor='top',
+                        font=dict(
+                        size=12
+                        ),
+                        opacity=1))
     
-  
-  if third:
-    fig.add_trace(go.Scatter(
-        x=df["mL"],
-        y=df[third],
-        yaxis="y3",
-        line=dict(
-                color=ph_color
-            ),
-        name=axis_label[third]
-    ))
 
-    fig.update_layout(
-          yaxis3=dict(
-          title=axis_label[third],
-          titlefont=dict(
-              color=ph_color
-          ),
-          tickfont=dict(
-              color=ph_color
-          ),
-          anchor="free",
-          side="right",
-          #range=(2,12),
-          overlaying="y", autoshift=True)
-    )
-  
-  if forth: 
-    fig.add_trace(go.Scatter(
-        x=df["mL"],
-        y=df[forth],
-        yaxis="y4",
-        name=axis_label[forth],
-        line=dict(
-                color=concb_color
-            ),
-    ))
 
+
+    # レイアウトの更新
     fig.update_layout(
-          yaxis4=dict(
-          title=axis_label[forth],
-          titlefont=dict(
-              color=concb_color,
-          ),
-          tickfont=dict(
-              color=concb_color
-          ),
-          anchor="free",
-          side="right",
-          overlaying="y", autoshift=True),
+        template="plotly_white",
+        plot_bgcolor='rgba(0,0,0,0)',
+        font=dict(size=14),
+        width=850,
+        height=600,
+        updatemenus=updatemenus,
+        legend=dict(
+            yanchor="top",
+            y=-0.2,
+            xanchor="right",
+            x=1,
+            font=dict(size=12),
+        ),
+        margin=dict(t=80, b=5, l=5, r=5)  # ドロップダウン用に上部マージンを調整
     )
 
+    return fig
 
 
-  fig.update_layout(
-      template="plotly_white",
-      plot_bgcolor='rgba(0,0,0,0)',
-      font=dict(
-        size=14,
-      ),
-      #title=dict(text='Chromatogram',
-      #           font=dict(size=20),
-      #            x=0.2,
-      #            xanchor='center'
-      #          ),
-      width=900,
-      height=540,
-      legend=dict(
-          yanchor="bottom",
-          y=1,
-          xanchor="left",
-          x=0,
-          font=dict(size=12),
-      ))
-
-
-
-  
-  
-  return fig
-
-
-
-def annotate_fraction(fig,frac_df,phase=None,rectangle=True,text=True,palette=None,annotations=None):
+def annotate_fraction(fig,frac_df,phase=None,rectangle=True,text=True,annotations=None):
 
   fig =copy(fig)
   
-  if not palette:
-    palette = sns.color_palette("Blues", len(frac_df))
   
   use_color_palette = {}
 
@@ -182,19 +293,22 @@ def annotate_fraction(fig,frac_df,phase=None,rectangle=True,text=True,palette=No
   texts = []
   phase_shapes = []
   phase_texts = []
+  
 
   for i,(index, row) in enumerate(frac_df.iterrows()):
     if annotations:
       if not row["Fraction_Start"] in annotations:
         continue
 
-    color = f"rgb({int(palette[i][0]*255)},{int(palette[i][1]*255)},{int(palette[i][2]*255)})"
-    use_color_palette[row["Fraction_Start"]] = palette[i]
+    color = row["Color_code"]#f"rgb({int(palette[i][0]*255)},{int(palette[i][1]*255)},{int(palette[i][2]*255)})"
+    use_color_palette[row["Fraction_Start"]] = color#palette[i]
 
     if rectangle:
       
       shapes.append(dict(type="rect",
                     x0=row["Start_mL"], y0=0, x1=row["End_mL"], y1=row["Max_UV"],
+                    xref="x",
+                    yref="y",
                     line=dict(color=color,width=2),
                     ))
 
@@ -216,15 +330,11 @@ def annotate_fraction(fig,frac_df,phase=None,rectangle=True,text=True,palette=No
 
                         opacity=0.8))
 
-
-  if phase is not None:
-    palette_phase = sns.color_palette(n_colors=len(phase))
-
    
     max_mL = frac_df["Max_UV"].max()*1.1
     
-    for i,row in phase.iterrows():
-      color = f"rgb({int(palette_phase[i][0]*255)},{int(palette_phase[i][1]*255)},{int(palette_phase[i][2]*255)})"
+  for i,row in phase.iterrows():
+      color = row["Color_code"]#f"rgb({int(palette_phase[i][0]*255)},{int(palette_phase[i][1]*255)},{int(palette_phase[i][2]*255)})"
       phase_shapes.append(dict(type="rect",
                       x0=row["Start_mL"], y0=0, x1=row["End_mL"], y1=max_mL,
                       layer="below",
@@ -249,24 +359,26 @@ def annotate_fraction(fig,frac_df,phase=None,rectangle=True,text=True,palette=No
                         opacity=1))
 
 
+  current_texts = getattr(fig.layout, 'annotations', [])
+  current_texts = list(current_texts)  # <--- この行を追加
+  all_texts = current_texts + texts + phase_texts
+
   # shapesとannotationsを追加
   fig.update_layout(
       shapes=shapes+phase_shapes,
-      annotations=texts+phase_texts
+      annotations=all_texts
   )                  
   fig.update_shapes(dict(xref='x', yref='y'))
 
-  fig.update_layout(
-    width=900,
-    height=600,
-    updatemenus=[
+  
+  add_updatemenus=[
       dict(
           type="buttons",
           direction="down",
           yanchor="bottom",
-          y=1.05,
-          xanchor="right",
-          x=0.85,
+          y=-0.3,
+          xanchor="left",
+          x=0,
           showactive=True,
           active=0,
           font=dict(size=12),
@@ -283,16 +395,16 @@ def annotate_fraction(fig,frac_df,phase=None,rectangle=True,text=True,palette=No
           type="buttons",
           direction="down",
           yanchor="bottom",
-          y=1.05,
-          xanchor="right",
-          x=1,
+          y=-0.4,
+          xanchor="left",
+          x=0,
           showactive=True,
           active=0,
           font=dict(size=12),
           buttons=[
               dict(
-                  args=[{f"annotations[{k}].visible": True for k in range(len(texts))}],
-                  args2=[{f"annotations[{k}].visible": False for k in range(len(texts))}],
+                  args=[{f"annotations[{k}].visible": True for k in range(4,4+len(texts))}],
+                  args2=[{f"annotations[{k}].visible": False for k in range(4,4+len(texts))}],
                   label="fraction text",
                   method="relayout"
               ),
@@ -302,9 +414,9 @@ def annotate_fraction(fig,frac_df,phase=None,rectangle=True,text=True,palette=No
           type="buttons",
           direction="down",
           yanchor="bottom",
-          y=1.15,
-          xanchor="right",
-          x=0.85,
+          y=-0.3,
+          xanchor="left",
+          x=0.4,
           showactive=True,
           active=0,
           font=dict(size=12),
@@ -321,23 +433,27 @@ def annotate_fraction(fig,frac_df,phase=None,rectangle=True,text=True,palette=No
           type="buttons",
           direction="down",
           yanchor="bottom",
-          y=1.15,
-          xanchor="right",
-          x=1,
+          y=-0.4,
+          xanchor="left",
+          x=0.4,
           showactive=True,
           active=0,
           font=dict(size=12),
           buttons=[
               dict(
-                  args=[{f"annotations[{k}].visible": True for k in range(len(texts),len(shapes+phase_texts))}],
-                  args2=[{f"annotations[{k}].visible": False for k in range(len(texts),len(shapes+phase_texts))}],
+                  args=[{f"annotations[{k}].visible": True for k in range(4+len(texts),4+len(shapes+phase_texts))}],
+                  args2=[{f"annotations[{k}].visible": False for k in range(4+len(texts),4+len(shapes+phase_texts))}],
                   label="phase text",
                   method="relayout"
               ),
           ]
       )
-  ],
-  )
+  ]
+  current_updatemenus = getattr(fig.layout, 'updatemenus', [])
+  current_updatemenus = list(current_updatemenus)
+  all_updatemenus = current_updatemenus + add_updatemenus
+  fig.update_layout(updatemenus=all_updatemenus)
+
   return fig,use_color_palette
 
 
