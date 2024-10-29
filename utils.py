@@ -73,9 +73,10 @@ def get_akta_fig(dir,first="UV 1_280",second="Cond",third=None,forth=None):
     fig,use_color_palette = pv.graph.annotate_fraction(fig,frac_df,phase_df)
 
     fig.update_layout(
-           width=850,
+           width=900,
            height=600
     )
+    #fig.update_layout(width=None, autosize=True)
 
     fig_html = pio.to_html(fig,full_html=False)
 
