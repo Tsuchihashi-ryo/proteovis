@@ -66,7 +66,7 @@ def get_akta_fig(dir,first="UV 1_280",second="Cond",third=None,forth=None):
 
     akta_df = pd.read_csv(akta_path,index_col=0)
     frac_df = pd.read_csv(frac_path,index_col=0)
-    phase_df = pd.read_csv(phase_path,index_col=0)
+    phase_df = pd.read_csv(phase_path,index_col=0).fillna("")
 
     fig = pv.graph.unicorn_ploty_graph(akta_df,first=first)
 
@@ -80,4 +80,29 @@ def get_akta_fig(dir,first="UV 1_280",second="Cond",third=None,forth=None):
     fig_html = pio.to_html(fig,full_html=False)
 
     return fig_html
+
+def get_phase_data(dir):
+        phase_path = os.path.join(dir, f"phase.csv")
+        phase_df = pd.read_csv(phase_path,index_col=0)
+        phase_df = phase_df.fillna("")
+
+        phase_data = []
+
+        for index, row in phase_df.iterrows():
+                phase_data.append(
+                        {"index": index,
+                        "phase": row["Phase"],
+                        "color": row["Color_code"]}
+                )
+
+        return phase_data
+
+def get_phase_df(dir):
+        phase_path = os.path.join(dir, f"phase.csv")
+        return pd.read_csv(phase_path,index_col=0)
+
+
+
+
+       
 
