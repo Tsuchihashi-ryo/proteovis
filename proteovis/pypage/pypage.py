@@ -48,7 +48,7 @@ def detect_and_correct_tilt(image):
     image = np.concatenate([image,warp_image]).astype(np.uint8)
     return image
 
-def detect_lanes(image, expected_lane_width=30):
+def detect_lanes(image, expected_lane_width=30,margin=0.2):
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
     # エッジ検出
@@ -75,7 +75,7 @@ def detect_lanes(image, expected_lane_width=30):
     # レーンの連続性を考慮した後処理
     final_lanes = []
     for i, center in enumerate(lane_centers):
-        if i == 0 or abs(center - final_lanes[-1]) > expected_lane_width * 0.8:
+        if i == 0 or abs(center - final_lanes[-1]) > expected_lane_width * (1-margin):
             final_lanes.append(center)
         else:
             # 近接したレーンは平均化
@@ -156,11 +156,12 @@ def insert_mean(arr,lane_width,maximum,minimum=0,mergin=1.1):
 
 
 class PageImage:
-  def __init__(self,image_path,lane_width=50):
+  def __init__(self,image_path,lane_width=50,margin=0.2):
     self.image_ = cv2.imread(image_path)
     self.lane_width = lane_width
+    self.margin = margin
     self.image = detect_and_correct_tilt(self.image_)
-    self.lanes = detect_lanes(self.image, self.lane_width)
+    self.lanes = detect_lanes(self.image, self.lane_width,self.margin)
     self.annotations = None
 
   def annotate_lanes(self,annotations):
