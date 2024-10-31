@@ -464,7 +464,7 @@ def annotate_page(image, lanes, lane_width=30,rectangle=True,text=True,palette_d
   height, width = image.shape[:2]
   fig.update_layout(
       template="plotly_white",
-      title=dict(text='CBB stain',
+      title=dict(text='PAGE image',
                  font=dict(size=24),
                   x=0.5,
                   y=1.2,
