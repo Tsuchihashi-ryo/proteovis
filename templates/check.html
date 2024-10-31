@@ -14,20 +14,19 @@
 
 {% block middle_panel %}
     {{page_fig | safe}}
-    </br>
-    <form method="POST" enctype="multipart/form-data" action="/reload_page" name="reload_page"></form>></formmethod>>
+    <form method="POST" enctype="multipart/form-data">
         <div class="grid grid-cols-6 gap-6">
             <!-- Left Panel -->
             <div class="col-span-3 space-y-4">
                 <p>width</p>
-                <input type="range" id="width-slider" min="40" max="60" value="50" step="1">
+                <input type="range" id="width-slider" name="width-slider" min="40" max="60" value="{{lane_width}}" step="1">
             </div>
+            
             <div class="col-span-3 space-y-4">
-
                 <p>margin</p>
-                <input type="range" id="margin-slider" min="0" max="0.5" value="0.2" step="0.05">
-                <button type="submit" class="w-full bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 transition duration-300 ease-in-out">Reload</button>
+                <input type="range" id="margin-slider" name="margin-slider" min="0" max="0.5" value="{{margin}}" step="0.05">
             </div>
+            <button type="submit" class="w-full bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 transition duration-300 ease-in-out">Reload</button>
     </form>
 {% endblock %}
 

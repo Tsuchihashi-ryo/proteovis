@@ -4,7 +4,7 @@ import plotly.graph_objects as go
 import plotly.express as px
 import seaborn as sns
 from copy import copy
-from pypage import pypage
+from proteovis.pypage import pypage
 
 
 
@@ -467,7 +467,7 @@ def annotate_page(image, lanes, lane_width=30,rectangle=True,text=True,palette_d
       title=dict(text='PAGE image',
                  font=dict(size=24),
                   x=0.5,
-                  y=1.2,
+                  y=0.95,
                   xanchor='center',
                   #yanchor="bottom"
                 ),
@@ -557,8 +557,8 @@ def annotate_page(image, lanes, lane_width=30,rectangle=True,text=True,palette_d
       dict(
           type="buttons",
           direction="down",
-          x=0,
-          y=1.1,
+          x=-0.05,
+          y=0.9,
           showactive=True,
           active=0,
           font=dict(size=12),
@@ -574,8 +574,8 @@ def annotate_page(image, lanes, lane_width=30,rectangle=True,text=True,palette_d
       dict(
           type="buttons",
           direction="down",
-          x=0.3,
-          y=1.1,
+          x=-0.05,
+          y=0.8,
           showactive=True,
           active=0,
           font=dict(size=12),

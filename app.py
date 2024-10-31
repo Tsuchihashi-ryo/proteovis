@@ -105,7 +105,8 @@ def akta(experiment_name,run_name):
 
     return render_template('phase.html',sample_list=sample_list,akta_fig=fig_html)
 
-@app.route(f"/experiment/<experiment_name>/PAGE/<run_name>/check")
+
+@app.route(f"/experiment/<experiment_name>/PAGE/<run_name>/check", methods=["GET","POST"])
 def page_check(experiment_name,run_name):
     exp_dir = os.path.join(app.config['UPLOAD_FOLDER'], f"{experiment_name}")
     analysis_dir = os.path.join(exp_dir, "analysis")
@@ -115,23 +116,18 @@ def page_check(experiment_name,run_name):
 
     sample_list = get_samples(analysis_dir)
 
-    fig_html = get_page_fig(image_path)
+    if request.method == 'GET':
+        fig_html = get_page_fig(image_path)
+        lane_width = 45
+        margin = 0.2
+    
+    else:
+        lane_width = request.form.get('width-slider')
+        margin = request.form.get('margin-slider')
+        fig_html = get_page_fig(image_path,lane_width=int(lane_width),margin=float(margin))
 
-    return render_template('check.html',sample_list=sample_list,page_fig=fig_html)
+    return render_template('check.html',sample_list=sample_list,page_fig=fig_html,lane_width=lane_width,margin=margin)
 
-@app.route(f"/reload_page")
-def reload_page(experiment_name,run_name,):
-    exp_dir = os.path.join(app.config['UPLOAD_FOLDER'], f"{experiment_name}")
-    analysis_dir = os.path.join(exp_dir, "analysis")
-    raw_dir = os.path.join(exp_dir, "raw_data")
-    image_path = os.path.join(raw_dir, f"{run_name}")
-    data_dir = os.path.join(analysis_dir, f"{run_name}")
-
-    sample_list = get_samples(analysis_dir)
-
-    fig_html = get_page_image(image_path)
-
-    return render_template('phase.html',sample_list=sample_list,page_fig=fig_html)
 
 
 

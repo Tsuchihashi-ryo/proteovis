@@ -9,7 +9,7 @@ from copy import copy
 import plotly.express as px
 import plotly.graph_objects as go
 
-import graph
+from proteovis import graph
 from pyspectrum.spectrum import CorrectSpec
 
 def detect_and_correct_tilt(image):
