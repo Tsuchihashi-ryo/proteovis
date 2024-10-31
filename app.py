@@ -115,13 +115,33 @@ def akta(experiment_name,run_name):
 
         for i in df.index:
             df.loc[i, "Phase"] = request.form.get(f'phase_{i}')
+            df.loc[i,"Color_code"] = request.form.get(f'color_{i}')
 
         df.to_csv(os.path.join(data_dir,"phase.csv"),na_rep="A")
         
         return "end"
 
 
+@app.route(f"/experiment/<experiment_name>/AKTA/<run_name>/pooling", methods=['GET', 'POST'])
+def akta2(experiment_name,run_name):
+    exp_dir = os.path.join(app.config['UPLOAD_FOLDER'], f"{experiment_name}")
+    analysis_dir = os.path.join(exp_dir, "analysis")
+    data_dir = os.path.join(analysis_dir, f"{run_name}")
+    
 
+    if request.method == 'GET':
+        sample_list = get_samples(analysis_dir)
+        fig_html = get_akta_fig(data_dir)
+        phase_list = get_phase_data(data_dir)
+        #right pannel 
+        fraction_list = get_frac_data(data_dir)
+
+        return render_template('pool.html',
+                               sample_list=sample_list,
+                               akta_fig=fig_html, 
+                               phase_list=phase_list,
+                               fraction_list=fraction_list) #add right pannel data
+        #return render_template('pool.html')
 
 if __name__ == '__main__':
     app.run(port=8000,debug=True)

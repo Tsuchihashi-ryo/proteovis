@@ -1,5 +1,8 @@
 {% extends "template.html" %}
 
+{% block script_code %}
+{% endblock %}
+
 {% block left_panel %}
     {% for sample in sample_list %}
         <div class="bg-blue-100 p-4 rounded-lg">
@@ -25,6 +28,7 @@
                         {% for phase_data in phase_list %}
                         <div class="flex items-center space-x-2">
                             <div class="w-4 h-4" style="background-color: {{phase_data.color}}; opacity: 0.2;"></div>
+                            <input id="color_{{phase_data.index}}" name="color_{{phase_data.index}}" type="color" name="favorite_color" value="{{phase_data.color}}">
                             <input id="phase_{{phase_data.index}}" name="phase_{{phase_data.index}}" type="text" value="{{phase_data.phase}}" class="border rounded px-2 py-1 w-full">
                         </div>
                         {% endfor %}

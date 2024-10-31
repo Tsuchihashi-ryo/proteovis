@@ -102,6 +102,13 @@ def get_phase_df(dir):
         return pd.read_csv(phase_path,index_col=0)
 
 
+def get_frac_data(dir):
+        frac_path = os.path.join(dir, f"fraction.csv")
+        frac_df = pd.read_csv(frac_path,index_col=0)
+        fraction_list = frac_df["Fraction_Start"].to_list()
+
+        return fraction_list
+
 
 
        
