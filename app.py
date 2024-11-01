@@ -7,6 +7,7 @@ import plotly.io as pio
 import pandas as pd
 import seaborn as sns
 from utils import *
+import json
 
 pio.orca.config.executable = 'C:/Users/jb60386/AppData/Local/Programs/orca/orca.exe'
 app = Flask(__name__,static_folder='./static', static_url_path='/static')
@@ -114,19 +115,75 @@ def page_check(experiment_name,run_name):
     image_path = os.path.join(raw_dir, f"{run_name}.jpg")
     data_dir = os.path.join(analysis_dir, f"{run_name}")
 
+    session["experiment_name"] = experiment_name
+    session["run_name"] = run_name
+    session["type"] = "PAGE"
+
     sample_list = get_samples(analysis_dir)
+
+    config_file = os.path.join(data_dir,"config.json")
 
     if request.method == 'GET':
         fig_html = get_page_fig(image_path)
-        lane_width = 45
-        margin = 0.2
+
+        if os.path.exists(config_file):
+            config = json.load(open(config_file))
+            
+            lane_width = config["lane_width"]
+            margin = config["margin"]
+        
+        else:
+            lane_width = 45
+            margin = 0.2
     
     else:
         lane_width = request.form.get('width-slider')
         margin = request.form.get('margin-slider')
         fig_html = get_page_fig(image_path,lane_width=int(lane_width),margin=float(margin))
 
+
+    config = {"lane_width":lane_width,
+            "margin":margin}
+        
+    config_file = os.path.join(session["data_dir"],'config.json')
+    with open(config_file, 'wt') as f:
+        json.dump(config, f, indent=2, ensure_ascii=False)
+
     return render_template('check.html',sample_list=sample_list,page_fig=fig_html,lane_width=lane_width,margin=margin)
+
+
+@app.route(f"/save_page", methods=["GET"])
+def save_page():
+    experiment_name = session["experiment_name"]
+    run_name = session["run_name"]
+    type = session["type"]
+    return redirect(url_for(f"page_annotate",experiment_name=experiment_name,run_name=run_name))
+
+
+@app.route(f"/experiment/<experiment_name>/PAGE/<run_name>/annotate", methods=["GET","POST"])
+def page_annotate(experiment_name,run_name):
+    exp_dir = os.path.join(app.config['UPLOAD_FOLDER'], f"{experiment_name}")
+    analysis_dir = os.path.join(exp_dir, "analysis")
+    raw_dir = os.path.join(exp_dir, "raw_data")
+    data_dir = os.path.join(analysis_dir, f"{run_name}")
+
+    image_path = os.path.join(raw_dir, f"{run_name}.jpg")
+    config_file = os.path.join(data_dir,"config.json")
+
+    session["experiment_name"] = experiment_name
+    session["run_name"] = run_name
+    session["type"] = "PAGE"
+
+    sample_list = get_samples(analysis_dir)
+
+    config_file = os.path.join(data_dir,"config.json")
+    config = json.load(open(config_file))
+
+    lane_width = config["lane_width"]
+    margin = config["margin"]
+    fig_html = get_page_fig(image_path,lane_width=int(lane_width),margin=float(margin))
+
+    return render_template('annotate.html',sample_list=sample_list,page_fig=fig_html)
 
 
 

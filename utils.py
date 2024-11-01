@@ -88,7 +88,7 @@ def get_page_fig(image_path,lane_width=50,margin=0.2):
 
     fig.update_layout(
            width=900,
-           height=500
+           height=600
     )
 
     fig_html = pio.to_html(fig,full_html=False)

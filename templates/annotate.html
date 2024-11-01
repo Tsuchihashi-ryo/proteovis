@@ -19,22 +19,18 @@
 {% block right_panel %}
 <form method="POST" enctype="multipart/form-data">
         <div class="space-y-4 p-4">
-            <input type="range" id="width-slider" name="width-slider" min="40" max="60" value="{{lane_width}}" step="1">
+            <input type="text" id="width-slider" name="width-slider">
             <label for="width-slider">Width</label>
         </div>
         
         <div class="space-y-4 p-4">
-            <input type="range" id="margin-slider" name="margin-slider" min="0" max="0.5" value="{{margin}}" step="0.05">
+            <input type="text" id="margin-slider" name="margin-slider">
             <label for="margin-slider">margin</label>
         </div>
-        <div class="space-y-4 p-4">
-            <button type="submit" class="w-full bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 transition duration-300 ease-in-out">Reload</button>
-        </div>
-   
-
 </form>
+
 <div class="space-y-2 bg-white p-1 rounded-lg mb-1">
-        <form method="GET" action="/save_page">
+        <form method="POST" enctype="multipart/form-data" action="/save_page">
             <button type="submit" class="w-full bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 transition duration-300 ease-in-out">Next</button>
         </form>
 </div>
