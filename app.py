@@ -119,11 +119,11 @@ def akta(experiment_name,run_name):
 
         df.to_csv(os.path.join(data_dir,"phase.csv"),na_rep="A")
         
-        return "end"
+        return redirect(url_for(f"akta_pooling",experiment_name=experiment_name, run_name=run_name))
 
 
 @app.route(f"/experiment/<experiment_name>/AKTA/<run_name>/pooling", methods=['GET', 'POST'])
-def akta2(experiment_name,run_name):
+def akta_pooling(experiment_name,run_name):
     exp_dir = os.path.join(app.config['UPLOAD_FOLDER'], f"{experiment_name}")
     analysis_dir = os.path.join(exp_dir, "analysis")
     data_dir = os.path.join(analysis_dir, f"{run_name}")
