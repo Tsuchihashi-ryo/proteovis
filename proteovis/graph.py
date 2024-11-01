@@ -4,7 +4,7 @@ import plotly.graph_objects as go
 import plotly.express as px
 import seaborn as sns
 from copy import copy
-from pypage import pypage
+from proteovis.pypage import pypage
 
 
 
@@ -464,7 +464,7 @@ def annotate_page(image, lanes, lane_width=30,rectangle=True,text=True,palette_d
   height, width = image.shape[:2]
   fig.update_layout(
       template="plotly_white",
-      title=dict(text='CBB stain',
+      title=dict(text='PAGE image',
                  font=dict(size=24),
                   x=0.5,
                   y=0.95,
@@ -472,7 +472,8 @@ def annotate_page(image, lanes, lane_width=30,rectangle=True,text=True,palette_d
                   #yanchor="bottom"
                 ),
       width=width,
-      height=height
+      height=height,
+      margin=dict(t=80, b=5, l=5, r=5)
   )  
 
   fig.update_layout(
@@ -556,8 +557,8 @@ def annotate_page(image, lanes, lane_width=30,rectangle=True,text=True,palette_d
       dict(
           type="buttons",
           direction="down",
-          x=1.1,
-          y=1.1,
+          x=-0.05,
+          y=0.9,
           showactive=True,
           active=0,
           font=dict(size=12),
@@ -573,8 +574,8 @@ def annotate_page(image, lanes, lane_width=30,rectangle=True,text=True,palette_d
       dict(
           type="buttons",
           direction="down",
-          x=1.1,
-          y=1.2,
+          x=-0.05,
+          y=0.8,
           showactive=True,
           active=0,
           font=dict(size=12),

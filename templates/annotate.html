@@ -1,0 +1,37 @@
+{% extends "template.html" %}
+
+{% block left_panel %}
+    {% for sample in sample_list %}
+        <div class="bg-blue-100 p-4 rounded-lg">
+            <img src="{{sample.image_path}}" >
+            <p class="text-sm font-medium">File: {{sample.name}}</p>
+            <p class="text-sm">Type: {{sample.file_type}}</p>
+        </div>
+    {% endfor %}
+
+    {{ super() }}
+{% endblock %}
+
+{% block middle_panel %}
+    {{page_fig | safe}}
+{% endblock %}
+
+{% block right_panel %}
+<form method="POST" enctype="multipart/form-data">
+        <div class="space-y-4 p-4">
+            <input type="text" id="width-slider" name="width-slider">
+            <label for="width-slider">Width</label>
+        </div>
+        
+        <div class="space-y-4 p-4">
+            <input type="text" id="margin-slider" name="margin-slider">
+            <label for="margin-slider">margin</label>
+        </div>
+</form>
+
+<div class="space-y-2 bg-white p-1 rounded-lg mb-1">
+        <form method="POST" enctype="multipart/form-data" action="/save_page">
+            <button type="submit" class="w-full bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 transition duration-300 ease-in-out">Next</button>
+        </form>
+</div>
+{% endblock %}

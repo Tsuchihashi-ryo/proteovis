@@ -28,8 +28,8 @@ def get_akta_data(path):
         return akta_df,frac_df,phase_df,akta_fig
 
 
-def get_page_image(path):
-        page = pv.pypage.PageImage(path,lane_width=44)
+def get_page_image(path,lane_width=44,margin=0.2):
+        page = pv.pypage.PageImage(path,lane_width=lane_width,margin=margin)
         page_fig = page.check_image()
         return page_fig
 
@@ -73,7 +73,21 @@ def get_akta_fig(dir,first="UV 1_280",second="Cond",third=None,forth=None):
     fig,use_color_palette = pv.graph.annotate_fraction(fig,frac_df,phase_df)
 
     fig.update_layout(
-           width=850,
+           width=900,
+           height=600
+    )
+    #fig.update_layout(width=None, autosize=True)
+
+    fig_html = pio.to_html(fig,full_html=False)
+
+    return fig_html
+
+
+def get_page_fig(image_path,lane_width=50,margin=0.2):
+    fig = get_page_image(image_path,lane_width=lane_width,margin=margin)
+
+    fig.update_layout(
+           width=900,
            height=600
     )
 

@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="shift-js">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no">
     <title>Data Viewer Prototype</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -12,11 +12,14 @@
     <style>
         body {
             font-family: 'Inter', sans-serif;
+            width: 1700px;
+            transform-origin: 0 0;
+            margin: 0;
         }
     </style>
 </head>
 <body class="bg-gray-100 p-3 items-center justify-center max-h-fit">
-    <div class="max-w-fill mx-auto bg-white rounded-lg shadow-lg p-3 max-h-fit">
+    <div class="max-w-full mx-auto bg-white rounded-lg shadow-lg p-3 max-h-fit">
         <div class="grid grid-cols-12 gap-6">
             <!-- Left Panel -->
             <div class="col-span-2 space-y-4">
@@ -36,9 +39,8 @@
             
             <!-- Right Panel (Analysis Panel) -->
             <div class="col-span-3 bg-blue-50 p-4 rounded-lg">
-                <h2 class="font-semibold mb-4">test</h2>
-                {% block right_panel %}
-                {% endblock %}
+                    {% block right_panel %}
+                    {% endblock %}
             </div>
 
         </div>
@@ -112,6 +114,31 @@
                     }
                 }
             }
+        });
+    </script>
+    <script>
+        var change_scale = {
+            "container": 1700,
+            "percent": 0.7,
+            "function": function() {
+                "use strict";
+                if (change_scale.percent === window.devicePixelRatio) {
+                    var scale = document.documentElement.clientWidth;
+                    scale = scale / change_scale.container;
+                    scale = "scale(" + scale + ")";
+                    document.body.style.transform = scale;
+                } else {
+                    change_scale.percent = window.devicePixelRatio;
+                }
+            }
+        };
+        (function() {
+            "use strict";
+            change_scale.function();
+        }());
+        window.addEventListener("resize", function(event) {
+            "use strict";
+            change_scale.function();
         });
     </script>
 </body>
