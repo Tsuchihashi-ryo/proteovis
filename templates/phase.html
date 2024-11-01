@@ -1,5 +1,8 @@
 {% extends "template.html" %}
 
+{% block script_code %}
+{% endblock %}
+
 {% block left_panel %}
     {% for sample in sample_list %}
         <div class="bg-blue-100 p-4 rounded-lg">
@@ -19,4 +22,21 @@
 {% endblock %}
 
 {% block right_panel %}
+<h2 class="font-semibold mb-4">Set step name</h2>
+                <div class="space-y-2 bg-white p-1 rounded-lg mb-1">
+                    <form method="POST" enctype="multipart/form-data">
+                        {% for phase_data in phase_list %}
+                        <div class="flex items-center space-x-2">
+                            <div class="w-4 h-4" style="background-color: {{phase_data.color}}; opacity: 0.2;"></div>
+                            <input id="color_{{phase_data.index}}" name="color_{{phase_data.index}}" type="color" name="favorite_color" value="{{phase_data.color}}">
+                            <input id="phase_{{phase_data.index}}" name="phase_{{phase_data.index}}" type="text" value="{{phase_data.phase}}" class="border rounded px-2 py-1 w-full">
+                        </div>
+                        {% endfor %}
+
+                        <div class="mt-6 text-right">
+                            <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition duration-300">Next</button>
+                        </div>
+                    </form>
+                </div>
+   
 {% endblock %}

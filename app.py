@@ -9,7 +9,7 @@ import seaborn as sns
 from utils import *
 import json
 
-pio.orca.config.executable = 'C:/Users/jb60386/AppData/Local/Programs/orca/orca.exe'
+pio.orca.config.executable = 'C:/Users/jb60764/AppData/Local/Programs/orca/orca.exe'
 app = Flask(__name__,static_folder='./static', static_url_path='/static')
 app.secret_key = b'fewgagaehrae'
 app.jinja_env.auto_reload = True
@@ -94,19 +94,57 @@ def experiment(experiment_name):
 
     return render_template('template.html',files=sample_html)
 
-@app.route(f"/experiment/<experiment_name>/AKTA/<run_name>/phase")
+@app.route(f"/experiment/<experiment_name>/AKTA/<run_name>/phase", methods=['GET', 'POST'])
 def akta(experiment_name,run_name):
     exp_dir = os.path.join(app.config['UPLOAD_FOLDER'], f"{experiment_name}")
     analysis_dir = os.path.join(exp_dir, "analysis")
     data_dir = os.path.join(analysis_dir, f"{run_name}")
 
-    sample_list = get_samples(analysis_dir)
+    if request.method == 'GET':
+        sample_list = get_samples(analysis_dir)
 
-    fig_html = get_akta_fig(data_dir)
+        fig_html = get_akta_fig(data_dir)
 
-    return render_template('phase.html',sample_list=sample_list,akta_fig=fig_html)
+        phase_list = get_phase_data(data_dir)
+        #right pannel 
+
+        return render_template('phase.html',sample_list=sample_list,akta_fig=fig_html, phase_list=phase_list) #add right pannel data
+
+    else:
+        #df read
+        df = get_phase_df(data_dir)
+
+        for i in df.index:
+            df.loc[i, "Phase"] = request.form.get(f'phase_{i}')
+            df.loc[i,"Color_code"] = request.form.get(f'color_{i}')
+
+        df.to_csv(os.path.join(data_dir,"phase.csv"),na_rep="A")
+        
+        return redirect(url_for(f"akta_pooling",experiment_name=experiment_name, run_name=run_name))
 
 
+@app.route(f"/experiment/<experiment_name>/AKTA/<run_name>/pooling", methods=['GET', 'POST'])
+def akta_pooling(experiment_name,run_name):
+    exp_dir = os.path.join(app.config['UPLOAD_FOLDER'], f"{experiment_name}")
+    analysis_dir = os.path.join(exp_dir, "analysis")
+    data_dir = os.path.join(analysis_dir, f"{run_name}")
+    
+
+    if request.method == 'GET':
+        sample_list = get_samples(analysis_dir)
+        fig_html = get_akta_fig(data_dir)
+        phase_list = get_phase_data(data_dir)
+        #right pannel 
+        fraction_list = get_frac_data(data_dir)
+
+        return render_template('pool.html',
+                               sample_list=sample_list,
+                               akta_fig=fig_html, 
+                               phase_list=phase_list,
+                               fraction_list=fraction_list) #add right pannel data
+        #return render_template('pool.html')
+        
+        
 @app.route(f"/experiment/<experiment_name>/PAGE/<run_name>/check", methods=["GET","POST"])
 def page_check(experiment_name,run_name):
     exp_dir = os.path.join(app.config['UPLOAD_FOLDER'], f"{experiment_name}")
@@ -148,11 +186,10 @@ def page_check(experiment_name,run_name):
     config_file = os.path.join(session["data_dir"],'config.json')
     with open(config_file, 'wt') as f:
         json.dump(config, f, indent=2, ensure_ascii=False)
-
+        
     return render_template('check.html',sample_list=sample_list,page_fig=fig_html,lane_width=lane_width,margin=margin)
-
-
-@app.route(f"/save_page", methods=["GET"])
+        
+ @app.route(f"/save_page", methods=["GET"])
 def save_page():
     experiment_name = session["experiment_name"]
     run_name = session["run_name"]
@@ -184,9 +221,6 @@ def page_annotate(experiment_name,run_name):
     fig_html = get_page_fig(image_path,lane_width=int(lane_width),margin=float(margin))
 
     return render_template('annotate.html',sample_list=sample_list,page_fig=fig_html)
-
-
-
 
 if __name__ == '__main__':
     app.run(port=8000,debug=True)

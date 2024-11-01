@@ -1,0 +1,128 @@
+{% extends "template.html" %}
+
+{% block script_code %}
+
+{% endblock %}
+
+{% block left_panel %}
+    {% for sample in sample_list %}
+        <div class="bg-blue-100 p-4 rounded-lg">
+            <img src="{{sample.image_path}}" >
+            <p class="text-sm font-medium">File: {{sample.name}}</p>
+            <p class="text-sm">Type: {{sample.file_type}}</p>
+        </div>
+    {% endfor %}
+
+    {{ super() }}
+{% endblock %}
+
+{% block middle_panel %}
+    {{akta_fig | safe}}
+    </br>
+    <p>if y not equal UV 280nm, please hide fraction/phase annotation.(not work autoscale)</p>
+{% endblock %}
+
+{% block right_panel %}
+<div class="col-span-3 bg-blue-50 p-4 rounded-lg">
+    <h2 class="font-semibold mb-4">Fraction pooling</h2>
+    <div>
+        <div class="h-20">
+            <h3 class="text-base font-medium mb-2">Select fractions</h3>
+            <input type="text" placeholder="fraction name" id="fractionInput" class="w-1/2 px-3 py-2 border border-gray-300 rounded-lg text-sm">
+            <ul id="suggestions" class="absolute z-10 w-full bg-white border border-gray-300 rounded-md mt-1 hidden"></ul>                
+        </div>
+
+        <div id="fractionButtons" class="h-40 flex flex-wrap gap-2">
+
+        </div>
+
+        <input type="text" placeholder="new pooling name" id="FracNameInput" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+        <button class="w-full bg-blue-500 text-white py-2 px-4 rounded-lg text-base hover:bg-blue-600 transition duration-300">pooling</button>
+    
+    </div>
+</div>
+
+  <script type="module">
+
+    let fractionList = {{fraction_list | safe}};
+  
+    const fractionInput = document.getElementById('fractionInput');
+    const suggestions = document.getElementById('suggestions');
+    const fractionButtons = document.getElementById('fractionButtons');
+    let existingFractions = function() {
+        return Array.from(fractionButtons.children)
+    .map(el => el.textContent.slice(0,-2).trim().toLowerCase());
+    };
+    fractionInput.addEventListener('input', function() {
+        console.log(existingFractions())
+        const inputValue = this.value.toLowerCase();
+        const filteredSuggestions = fractionList.filter(item => {
+        const lowercaseItem = item.toLowerCase();
+        
+        const suggestion = lowercaseItem.includes(inputValue) && !existingFractions().includes(lowercaseItem);
+        
+        return suggestion;
+    });
+        
+        updateSuggestions(suggestions, filteredSuggestions, fractionInput);
+    });
+  
+    fractionInput.addEventListener('keydown', function(event) {
+      if (event.key === 'Enter') {
+        const fractionName = fractionInput.value.trim().toLowerCase();
+  
+        if (fractionName !== '' && !existingFractions().includes(fractionName)) {
+            addFraction(fractionName);
+            fractionInput.value = ''; // 入力欄をクリア
+        }
+        event.preventDefault();
+      }
+    });
+
+    function alreadyAdded(fractionName) {
+
+        return Array.from(fractionButtons.children).some(el => el.textContent.trim() === fractionName);
+    }
+
+    function addFraction(fractionName) {
+        const preElement = document.createElement('div'); // <pre> を <div> に変更
+        preElement.classList.add('bg-gray-200', 'text-gray-700', 'p-2', 'rounded-lg', 'text-base', "h-10");
+        preElement.textContent = fractionName;
+
+        const closeButton = document.createElement('span');
+        closeButton.classList.add('close-button', "text-xl", "font-bold", "text-red-500");
+        closeButton.innerHTML = ' &times;';
+        closeButton.setAttribute('aria-label', '分数を削除'); // ARIA ラベルを追加
+        closeButton.addEventListener('click', () => {
+        fractionButtons.removeChild(preElement);
+    });
+    
+        preElement.appendChild(closeButton);
+        fractionButtons.appendChild(preElement);
+    }
+
+
+    function updateSuggestions(suggestionsElement, items, inputElement) {
+    suggestionsElement.innerHTML = '';
+    
+    if (items.length === 0) {
+        suggestionsElement.classList.add('hidden');
+        return;
+    }
+
+    items.forEach(item => {
+        const li = document.createElement('li');
+        li.textContent = item;
+        li.className = 'px-3 py-1 hover:bg-gray-100 cursor-pointer';
+        li.setAttribute("role", "option");
+        li.addEventListener('click', () => {
+            inputElement.value = item;
+            suggestionsElement.classList.add('hidden');
+        });
+        suggestionsElement.appendChild(li);
+    });
+
+    suggestionsElement.classList.remove('hidden');
+}
+  </script>
+{% endblock %}
