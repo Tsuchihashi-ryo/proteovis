@@ -188,8 +188,9 @@ def page_check(experiment_name,run_name):
         json.dump(config, f, indent=2, ensure_ascii=False)
         
     return render_template('check.html',sample_list=sample_list,page_fig=fig_html,lane_width=lane_width,margin=margin)
-        
- @app.route(f"/save_page", methods=["GET"])
+
+
+@app.route(f"/save_page", methods=["GET"])
 def save_page():
     experiment_name = session["experiment_name"]
     run_name = session["run_name"]
