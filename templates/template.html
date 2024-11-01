@@ -7,8 +7,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    {% block script_code %}
-    {% endblock %}
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -141,5 +141,9 @@
             change_scale.function();
         });
     </script>
+
+    {% block script_code %}
+    {% endblock %}
+
 </body>
 </html>

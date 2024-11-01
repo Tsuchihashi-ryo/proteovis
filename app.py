@@ -183,7 +183,7 @@ def page_check(experiment_name,run_name):
     config = {"lane_width":lane_width,
             "margin":margin}
         
-    config_file = os.path.join(session["data_dir"],'config.json')
+    config_file = os.path.join(data_dir,'config.json')
     with open(config_file, 'wt') as f:
         json.dump(config, f, indent=2, ensure_ascii=False)
         

@@ -2,7 +2,7 @@
 
 {% block left_panel %}
     {% for sample in sample_list %}
-        <div class="bg-blue-100 p-4 rounded-lg">
+        <div id="get-{{sample.name}}" class="bg-blue-100 p-4 rounded-lg" style="cursor: pointer;">
             <img src="{{sample.image_path}}" >
             <p class="text-sm font-medium">File: {{sample.name}}</p>
             <p class="text-sm">Type: {{sample.file_type}}</p>
@@ -38,4 +38,26 @@
             <button type="submit" class="w-full bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 transition duration-300 ease-in-out">Next</button>
         </form>
 </div>
+{% endblock %}
+
+
+{% block script_code %}
+<script>
+    
+        {% for sample in sample_list %}
+        $(document).ready(function() {
+            {% if sample.file_type == "AKTA" %}
+            console.log("{{sample.file_type}}")
+                $('#get-{{ sample.name }}').click(function() {
+                    $.get('/{{sample.name}}', function(data) {
+                        $('#result').text(JSON.stringify(data));
+                    });
+                });
+            {% else %}
+            console.log("{{sample.file_type | safe}}")
+            {% endif %}
+        });
+        {% endfor %}
+    
+    </script>
 {% endblock %}
