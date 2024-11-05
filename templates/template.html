@@ -31,14 +31,14 @@
             
             <!-- Middle Panel (Data Viewer) -->
             <div class="col-span-7 bg-blue-50 p-4 rounded-lg">
-                <div class="bg-white p-1 rounded-lg mb-1" style="overflow-y: scroll;">
+                <div class="bg-white p-1 rounded-lg mb-1">
                     {% block middle_panel %}
                     {% endblock %}
                 </div>
             </div>
             
             <!-- Right Panel (Analysis Panel) -->
-            <div class="col-span-3 bg-blue-50 p-4 rounded-lg" style="overflow-y: scroll;">
+            <div class="col-span-3 bg-blue-50 p-4 rounded-lg">
                     {% block right_panel %}
                     {% endblock %}
             </div>
@@ -122,20 +122,17 @@
             "percent": 0.7,
             "function": function() {
                 "use strict";
-                if (change_scale.percent === window.devicePixelRatio) {
-                    var scale = document.documentElement.clientWidth;
-                    scale = scale / change_scale.container;
-                    scale = "scale(" + scale + ")";
-                    document.body.style.transform = scale;
-                } else {
-                    change_scale.percent = window.devicePixelRatio;
-                }
+                var scale = document.documentElement.clientWidth;
+                scale = scale / change_scale.container;
+                scale = "scale(" + scale + ")";
+                document.body.style.transform = scale;
             }
         };
-        (function() {
+        // DOMContentLoaded イベントリスナーを追加
+        document.addEventListener('DOMContentLoaded', function() {
             "use strict";
             change_scale.function();
-        }());
+        });
         window.addEventListener("resize", function(event) {
             "use strict";
             change_scale.function();
