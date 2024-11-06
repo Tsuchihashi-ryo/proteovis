@@ -23,82 +23,102 @@
 {% endblock %}
 
 {% block right_panel %}
-<div class="col-span-3 bg-blue-50 p-4 rounded-lg">
+<div class="h-full col-span-3 bg-blue-50 p-4 rounded-lg flex flex-col">
     <h2 class="font-semibold mb-4">Fraction pooling</h2>
-    <div>
-        <div class="h-20">
-            <h3 class="text-base font-medium mb-2">Select fractions</h3>
-            <input type="text" placeholder="fraction name" id="fractionInput" class="w-1/2 px-3 py-2 border border-gray-300 rounded-lg text-sm">
-            <ul id="suggestions" class="absolute z-10 w-full bg-white border border-gray-300 rounded-md mt-1 hidden"></ul>                
+    <div class="flex-grow flex flex-col space-y-4">
+        <div class="h-[60%] bg-blue-100 p-4 rounded-lg flex flex-col">
+            <div class="mb-4">
+                <h3 class="text-base font-medium mb-2">Select fractions</h3>
+                <input type="text" placeholder="fraction name" id="fractionInput" class="w-1/2 px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                <ul id="suggestions" class="absolute z-10 w-full bg-white border border-gray-300 rounded-md mt-1 hidden"></ul>                
+            </div>
+
+            <div id="fractionButtons" class="flex-grow flex flex-wrap gap-2 overflow-y-auto">
+                <!-- フラクションボタンがここに動的に追加されます -->
+            </div>
+
+            <div class="mt-4">
+                <input type="text" placeholder="new pooling name" id="FracNameInput" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm mb-2">
+                <button class="w-full bg-blue-500 text-white py-2 px-4 rounded-lg text-base hover:bg-blue-600 transition duration-300">pooling</button>
+            </div>
         </div>
 
-        <div id="fractionButtons" class="h-40 flex flex-wrap gap-2">
-
+        <div class="h-[40%] bg-blue-100 p-4 rounded-lg">
+            <h3 class="text-base font-medium mb-2">Pooled fractions</h3>
+            <!-- プールされたフラクションの内容がここに表示されます -->
         </div>
-
-        <input type="text" placeholder="new pooling name" id="FracNameInput" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
-        <button class="w-full bg-blue-500 text-white py-2 px-4 rounded-lg text-base hover:bg-blue-600 transition duration-300">pooling</button>
-    
+    </div>
+    <div class="mt-6 flex justify-between">
+        <button type="button" class="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition duration-300">Back</button>
+        <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition duration-300">Next</button>
     </div>
 </div>
 
-  <script type="module">
+<script type="module">
 
     let fractionList = {{fraction_list | safe}};
-  
+    const allFractionList = fractionList.map(item => {
+        return item.toLowerCase();
+    });
+    console.log(allFractionList)
+
     const fractionInput = document.getElementById('fractionInput');
     const suggestions = document.getElementById('suggestions');
     const fractionButtons = document.getElementById('fractionButtons');
+    const poolingButton = document.getElementById('poolingButton'); // Get the button
+    const pooledFractionsDiv = document.getElementById('pooledFractions'); // Get the div to display pooled fractions
+    const fracNameInput = document.getElementById('FracNameInput');
+
+
     let existingFractions = function() {
         return Array.from(fractionButtons.children)
     .map(el => el.textContent.slice(0,-2).trim().toLowerCase());
     };
+
     fractionInput.addEventListener('input', function() {
         console.log(existingFractions())
         const inputValue = this.value.toLowerCase();
         const filteredSuggestions = fractionList.filter(item => {
-        const lowercaseItem = item.toLowerCase();
-        
-        const suggestion = lowercaseItem.includes(inputValue) && !existingFractions().includes(lowercaseItem);
-        
-        return suggestion;
-    });
-        
+            const lowercaseItem = item.toLowerCase();      
+            const suggestion = lowercaseItem.includes(inputValue) && !existingFractions().includes(lowercaseItem);
+            return suggestion;
+        });     
         updateSuggestions(suggestions, filteredSuggestions, fractionInput);
     });
-  
+
+
     fractionInput.addEventListener('keydown', function(event) {
-      if (event.key === 'Enter') {
-        const fractionName = fractionInput.value.trim().toLowerCase();
-  
-        if (fractionName !== '' && !existingFractions().includes(fractionName)) {
-            addFraction(fractionName);
-            fractionInput.value = ''; // 入力欄をクリア
+        if (event.key === 'Enter') {
+            const fractionName = fractionInput.value.trim().toLowerCase();
+            console.log(fractionName)
+            if (fractionName !== '' && allFractionList.includes(fractionName)) {
+                addFraction(fractionName);
+                fractionInput.value = ''; // 入力欄をクリア
+            }
+            event.preventDefault();
         }
-        event.preventDefault();
-      }
     });
 
     function alreadyAdded(fractionName) {
-
         return Array.from(fractionButtons.children).some(el => el.textContent.trim() === fractionName);
     }
 
     function addFraction(fractionName) {
-        const preElement = document.createElement('div'); // <pre> を <div> に変更
-        preElement.classList.add('bg-gray-200', 'text-gray-700', 'p-2', 'rounded-lg', 'text-base', "h-10");
-        preElement.textContent = fractionName;
+        const divElement = document.createElement('div'); // <pre> を <div> に変更
+        divElement.classList.add('bg-gray-200', 'text-gray-700', 'p-2', 'rounded-lg', 'text-base', "h-10", "cursor-pointer");
+        divElement.textContent = fractionName;
+        divElement.addEventListener('click', () => fractionButtons.removeChild(divElement));
 
         const closeButton = document.createElement('span');
         closeButton.classList.add('close-button', "text-xl", "font-bold", "text-red-500");
         closeButton.innerHTML = ' &times;';
         closeButton.setAttribute('aria-label', '分数を削除'); // ARIA ラベルを追加
         closeButton.addEventListener('click', () => {
-        fractionButtons.removeChild(preElement);
+        fractionButtons.removeChild(divElement);
     });
     
-        preElement.appendChild(closeButton);
-        fractionButtons.appendChild(preElement);
+        divElement.appendChild(closeButton);
+        fractionButtons.appendChild(divElement);
     }
 
 
@@ -108,7 +128,7 @@
     if (items.length === 0) {
         suggestionsElement.classList.add('hidden');
         return;
-    }
+        }
 
     items.forEach(item => {
         const li = document.createElement('li');
@@ -118,11 +138,22 @@
         li.addEventListener('click', () => {
             inputElement.value = item;
             suggestionsElement.classList.add('hidden');
-        });
+            });
         suggestionsElement.appendChild(li);
-    });
-
+        });
     suggestionsElement.classList.remove('hidden');
-}
-  </script>
+    }
+
+    poolingButton.addEventListener('click', () => { // Event listener for the pooling button
+        const poolName = fracNameInput.value.trim();
+        const selectedFractions = Array.from(fractionButtons.children).map(el => el.textContent.trim());
+
+        if (poolName === "" || selectedFractions.length === 0) {
+            alert("Please enter a pool name and select at least one fraction.");
+            return;
+        }
+
+        pooledFractionsDiv.innerHTML = `<h3>${poolName}:</h3> <p>${selectedFractions.join(', ')}</p>`;
+    });
+</script>
 {% endblock %}
