@@ -178,6 +178,8 @@ def find_phase(df):
   return df
 
 
+
+
 def palette2hex(palette_color):
   r = int(palette_color[0]*255)
   g = int(palette_color[1]*255)

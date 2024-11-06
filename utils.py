@@ -3,6 +3,7 @@ from glob import glob
 import proteovis as pv
 import plotly.io as pio
 import pandas as pd
+import json
 
 
 def get_akta_data(path):
@@ -32,6 +33,11 @@ def get_page_image(path,lane_width=44,margin=0.2):
         page = pv.pypage.PageImage(path,lane_width=lane_width,margin=margin)
         page_fig = page.check_image()
         return page_fig
+
+
+def get_page_lane_ids(path,lane_width=44,margin=0.2):
+        page = pv.pypage.PageImage(path,lane_width=lane_width,margin=margin)
+        return list(range(len(page.lanes)))
 
 
 def sampling_data(dir):
@@ -74,11 +80,13 @@ def get_akta_fig(dir,first="UV 1_280",second="Cond",third=None,forth=None):
 
     fig.update_layout(
            width=900,
-           height=600
+           height=600,
+           autosize=False
     )
-    #fig.update_layout(width=None, autosize=True)
+
 
     fig_html = pio.to_html(fig,full_html=False)
+    
 
     return fig_html
 
@@ -94,6 +102,8 @@ def get_page_fig(image_path,lane_width=50,margin=0.2):
     fig_html = pio.to_html(fig,full_html=False)
 
     return fig_html
+
+
 
 def get_phase_data(dir):
         phase_path = os.path.join(dir, f"phase.csv")
@@ -123,7 +133,141 @@ def get_frac_data(dir):
 
         return fraction_list
 
+def get_page_config(dir):
+    config_file = os.path.join(dir,"config.json").replace("\\","/")
+    config = json.load(open(config_file))
+
+    return config
 
 
-       
+
+def marker_check(dir,image_path,lane_id):
+        
+        config = get_page_config(dir)
+        page = pv.pypage.PageImage(image_path,
+                                        lane_width=int(config["lane_width"]),
+                                        margin=float(config["margin"]))
+
+        marker = page.get_lane(index=lane_id,start=0).astype(float)
+        marker = pv.pypage.Marker(marker)
+
+        fig = marker.check()
+
+        fig.update_layout(
+        width=200,
+        height=500
+        )
+
+        fig_html = pio.to_html(fig,full_html=False)
+
+        return fig_html,marker.peak_index
+
+
+def make_page_df(dir,image_path):
+        config = get_page_config(dir)
+        page = pv.pypage.PageImage(image_path,
+                                        lane_width=int(config["lane_width"]),
+                                        margin=float(config["margin"]))
+        return page.get_df()
+
+
+
+class ExperimentPath:
+      def __init__(self,header,experiment):
+            self.experiment = os.path.join(header, experiment)
+            self.analysis = os.path.join(self.experiment, "analysis")
+            self.raw = os.path.join(self.experiment, "raw_data")
+            self.data = {}
+
+
+            data_folders = glob(f"{self.analysis}/*")
+
+            for folder in data_folders:
+                name = os.path.basename(folder)
+                file_type_binary = os.path.exists(os.path.join(folder,"all_data.csv"))
+                if file_type_binary:
+                        data_type = "AKTA"
+                else:
+                        data_type = "PAGE"
+                
+                self.data[name] = DataPath(self.experiment,name,data_type=data_type)
+
+
+
+class DataPath:
+        def __init__(self,experiment,name,data_type):
+                self.analysis = os.path.join(experiment, "analysis", name)
+                self.experiment = experiment
+                self.name = name
+                self.data_type = data_type
+
+                if data_type == "AKTA":
+                        self.file_type = "zip"
+                        self.fraction = os.path.join(self.analysis, "fraction.csv")
+                        self.all_data = os.path.join(self.analysis, "all_data.csv")
+                        self.phase = os.path.join(self.analysis, "phase.csv")
+                else:
+                        self.file_type = "PAGE"
+                        self.config = os.path.join(self.analysis, "config.json").replace("\\","/")
+                        self.annotation = os.path.join(self.analysis, "annotation.csv")
+                
+                self.raw = os.path.join(self.experiment, "raw_data",f"{name}.jpg")
+                self.icon = os.path.join(self.analysis, "icon.png")
+
+
+def json_save(dict,path):
+       with open(path, 'wt') as f:
+        json.dump(dict, f, indent=2, ensure_ascii=False)
+
+
+def show_page_full(image_path,config,lane_path=None):
+        lane_width = int(config["lane_width"])
+        margin = float(config["margin"])
+
+        page = pv.pypage.PageImage(image_path,lane_width=lane_width,margin=margin)
+
+        marker = page.get_lane(index=int(config["marker"]["id"]),start=0).astype(float)
+        marker = pv.pypage.Marker(marker)
+        marker.annotate(config["marker"]["annotate"])
+        
+
+        if lane_path:
+                fig = page.annotated_imshow(use_color_palette,rectangle=True)
+        
+        else:
+               fig = page.check_image()
+
+        fig = pv.pypage.write_marker(fig,marker)
+
+        fig.update_layout(
+                width=900,
+                height=600
+        )
+
+        fig_html = pio.to_html(fig,full_html=False)
+
+        return fig_html
+
+
+def get_page_fig4annotate(image_path,config,df):
+        lane_width = int(config["lane_width"])
+        margin = float(config["margin"])
+
+        page = pv.pypage.PageImage(image_path,lane_width=lane_width,margin=margin)
+
+        page.annotate_lanes(df["Name"].values.tolist())
+        page.palette = df["Color_code"].values.tolist()
+
+        palette = {}
+
+        fig = page.annotated_imshow(palette,rectangle=True)
+
+        fig.update_layout(
+                width=900,
+                height=600
+        )
+
+        fig_html = pio.to_html(fig,full_html=False)
+
+        return fig_html
 

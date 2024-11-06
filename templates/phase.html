@@ -16,7 +16,9 @@
 {% endblock %}
 
 {% block middle_panel %}
-    {{akta_fig | safe}}
+    <div style="width: 900px; height: 600px;">
+         {{akta_fig | safe}}
+    </div>
     </br>
     <p>if y not equal UV 280nm, please hide fraction/phase annotation.(not work autoscale)</p>
 {% endblock %}

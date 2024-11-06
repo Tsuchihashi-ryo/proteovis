@@ -500,6 +500,7 @@ def annotate_page(image, lanes, lane_width=30,rectangle=True,text=True,palette_d
 
   if not palette_dict:
       palette = sns.color_palette("Set1", len(lanes))
+      palette = [palette2hex(p) for p in palette]
       #annotations = list(range(len(lanes)))
       palette_dict = {a:p for a,p in zip(annotations,palette)}
 
@@ -514,7 +515,7 @@ def annotate_page(image, lanes, lane_width=30,rectangle=True,text=True,palette_d
     if label == "":
       continue
 
-    color = f"rgb({int(palette_dict[label][0]*255)},{int(palette_dict[label][1]*255)},{int(palette_dict[label][2]*255)})"
+    color = palette_dict[label]
 
     if rectangle:
       lane_coord = pypage.get_lane(image,lane,lane_width=50)
@@ -592,3 +593,13 @@ def annotate_page(image, lanes, lane_width=30,rectangle=True,text=True,palette_d
   )
 
   return fig
+
+
+def palette2hex(palette_color):
+  r = int(palette_color[0]*255)
+  g = int(palette_color[1]*255)
+  b = int(palette_color[2]*255)
+
+  color_code = f'#{r:02x}{g:02x}{b:02x}'
+  color_code = color_code.replace('0x', '')
+  return color_code

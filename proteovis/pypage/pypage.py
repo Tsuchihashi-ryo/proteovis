@@ -5,12 +5,14 @@ from scipy import signal
 from scipy.ndimage import gaussian_filter1d
 import seaborn as sns
 from copy import copy
+import pandas as pd
 
 import plotly.express as px
 import plotly.graph_objects as go
 
 from proteovis import graph
 from pyspectrum.spectrum import CorrectSpec
+
 
 def detect_and_correct_tilt(image):
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -162,6 +164,8 @@ class PageImage:
     self.margin = margin
     self.image = detect_and_correct_tilt(self.image_)
     self.lanes = detect_lanes(self.image, self.lane_width,self.margin)
+    self.lane_ids = list(range(len(self.lanes)))
+    self.palette = sns.color_palette(n_colors=len(self.lanes))
     self.annotations = None
 
   def annotate_lanes(self,annotations):
@@ -177,11 +181,16 @@ class PageImage:
     return fig
 
   def annotated_imshow(self,palette_dict=None,rectangle=True,text=True):
+    if len(self.annotations):
+       palette_dict = {id:color for id,color in zip(self.annotations,self.palette)}
+    
+    else:
+       palette_dict = None
     fig = graph.annotate_page(self.image, self.lanes, self.lane_width,rectangle=rectangle,text=text,palette_dict=palette_dict,annotations=self.annotations)
     return fig
 
   def get_lane(self,index=None,name=None,mergin=0,start=0):
-    if index:
+    if type(index)==int:
       lane = index
     elif name:
       lane =self.annotations.index(name)
@@ -189,6 +198,19 @@ class PageImage:
     lane_x = self.lanes[lane]
     lane_coord = get_lane(self.image,lane_x,self.lane_width,mergin=mergin,start=start)
     return self.image[lane_coord.y0:lane_coord.y1,lane_coord.x0:lane_coord.x1,]
+  
+  def get_df(self):
+    df = pd.DataFrame(columns=["Lane", "Name","Group","SubGroup","Color_code"],index=range(len(self.lanes)))
+
+    for i in range(len(self.lanes)):
+      color = palette2hex(self.palette[i])
+      if self.annotations:
+         df.loc[i] = i,self.annotations[i],"","",color
+        
+      else:
+         df.loc[i] = i,str(i),"","",color
+    
+    return df
 
 
 class Marker:
@@ -242,12 +264,12 @@ def write_marker(fig,marker):
 
   for index,text in zip(marker.peak_index,marker.annotation):
     fig.add_annotation(go.layout.Annotation(
-                      x=0, y=index,
+                      x=-0, y=index,
                       xref="x",
                       yref="y",
                       text=f"{text}",
-                      align='left',
-                      xanchor="left",
+                      align='right',
+                      xanchor="right",
                       showarrow=False,
                       font=dict(
                       size=18,
@@ -255,12 +277,12 @@ def write_marker(fig,marker):
                       ))
   
   fig.add_annotation(go.layout.Annotation(
-                      x=0, y=100,
+                      x=-0, y=100,
                       xref="x",
                       yref="y",
                       text="(kDa)",
-                      align='left',
-                      xanchor="left",
+                      align='right',
+                      xanchor="right",
                       yanchor="bottom",
                       showarrow=False,
                       font=dict(
@@ -269,6 +291,17 @@ def write_marker(fig,marker):
                       ))
 
   return fig
+
+
+
+def palette2hex(palette_color):
+  r = int(palette_color[0]*255)
+  g = int(palette_color[1]*255)
+  b = int(palette_color[2]*255)
+
+  color_code = f'#{r:02x}{g:02x}{b:02x}'
+  color_code = color_code.replace('0x', '')
+  return color_code
   
 
 

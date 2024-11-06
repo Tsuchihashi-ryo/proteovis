@@ -8,6 +8,7 @@ import pandas as pd
 import seaborn as sns
 from utils import *
 import json
+import pandas as pd
 
 pio.orca.config.executable = 'C:/Users/jb60764/AppData/Local/Programs/orca/orca.exe'
 app = Flask(__name__,static_folder='./static', static_url_path='/static')
@@ -86,8 +87,10 @@ def index():
 
 @app.route(f"/experiment/<experiment_name>")
 def experiment(experiment_name):
-    exp_dir = os.path.join(app.config['UPLOAD_FOLDER'], f"{experiment_name}")
-    analysis_dir = os.path.join(exp_dir, "analysis")
+    exppath = ExperimentPath(header=app.config['UPLOAD_FOLDER'],
+                             experiment=experiment_name)
+    
+    analysis_dir = exppath.analysis
 
     sample_html = get_samples(analysis_dir)
 
@@ -96,9 +99,11 @@ def experiment(experiment_name):
 
 @app.route(f"/experiment/<experiment_name>/AKTA/<run_name>/phase", methods=['GET', 'POST'])
 def akta(experiment_name,run_name):
-    exp_dir = os.path.join(app.config['UPLOAD_FOLDER'], f"{experiment_name}")
-    analysis_dir = os.path.join(exp_dir, "analysis")
-    data_dir = os.path.join(analysis_dir, f"{run_name}")
+    exppath = ExperimentPath(header=app.config['UPLOAD_FOLDER'],
+                             experiment=experiment_name)
+    
+    analysis_dir = exppath.analysis
+    data_dir = exppath.data[run_name].analysis
 
     if request.method == 'GET':
         sample_list = get_samples(analysis_dir)
@@ -125,9 +130,11 @@ def akta(experiment_name,run_name):
 
 @app.route(f"/experiment/<experiment_name>/AKTA/<run_name>/pooling", methods=['GET', 'POST'])
 def akta_pooling(experiment_name,run_name):
-    exp_dir = os.path.join(app.config['UPLOAD_FOLDER'], f"{experiment_name}")
-    analysis_dir = os.path.join(exp_dir, "analysis")
-    data_dir = os.path.join(analysis_dir, f"{run_name}")
+    exppath = ExperimentPath(header=app.config['UPLOAD_FOLDER'],
+                             experiment=experiment_name)
+    
+    analysis_dir = exppath.analysis
+    data_dir = exppath.data[run_name].analysis
     
 
     if request.method == 'GET':
@@ -147,11 +154,16 @@ def akta_pooling(experiment_name,run_name):
         
 @app.route(f"/experiment/<experiment_name>/PAGE/<run_name>/check", methods=["GET","POST"])
 def page_check(experiment_name,run_name):
-    exp_dir = os.path.join(app.config['UPLOAD_FOLDER'], f"{experiment_name}")
-    analysis_dir = os.path.join(exp_dir, "analysis")
-    raw_dir = os.path.join(exp_dir, "raw_data")
-    image_path = os.path.join(raw_dir, f"{run_name}.jpg")
-    data_dir = os.path.join(analysis_dir, f"{run_name}")
+    exppath = ExperimentPath(header=app.config['UPLOAD_FOLDER'],
+                             experiment=experiment_name)
+    
+    analysis_dir = exppath.analysis
+    data_dir = exppath.data[run_name].analysis
+    raw_dir = exppath.raw
+
+    image_path = exppath.data[run_name].raw
+    config_file = exppath.data[run_name].config
+
 
     session["experiment_name"] = experiment_name
     session["run_name"] = run_name
@@ -159,7 +171,6 @@ def page_check(experiment_name,run_name):
 
     sample_list = get_samples(analysis_dir)
 
-    config_file = os.path.join(data_dir,"config.json")
 
     if request.method == 'GET':
         fig_html = get_page_fig(image_path)
@@ -183,7 +194,6 @@ def page_check(experiment_name,run_name):
     config = {"lane_width":lane_width,
             "margin":margin}
         
-    config_file = os.path.join(data_dir,'config.json')
     with open(config_file, 'wt') as f:
         json.dump(config, f, indent=2, ensure_ascii=False)
         
@@ -200,28 +210,178 @@ def save_page():
 
 @app.route(f"/experiment/<experiment_name>/PAGE/<run_name>/annotate", methods=["GET","POST"])
 def page_annotate(experiment_name,run_name):
-    exp_dir = os.path.join(app.config['UPLOAD_FOLDER'], f"{experiment_name}")
-    analysis_dir = os.path.join(exp_dir, "analysis")
-    raw_dir = os.path.join(exp_dir, "raw_data")
-    data_dir = os.path.join(analysis_dir, f"{run_name}")
+    exppath = ExperimentPath(header=app.config['UPLOAD_FOLDER'],
+                             experiment=experiment_name)
+    
+    analysis_dir = exppath.analysis
+    datapath = exppath.data[run_name]
 
-    image_path = os.path.join(raw_dir, f"{run_name}.jpg")
-    config_file = os.path.join(data_dir,"config.json")
+    image_path = exppath.data[run_name].raw
+    config_file = exppath.data[run_name].config
 
+    sample_list = get_samples(analysis_dir)
+    
+    config = json.load(open(config_file))
+    
+
+    if os.path.exists(datapath.annotation):
+        df = pd.read_csv(datapath.annotation)
+        
+    
+    else:
+        df = make_page_df(datapath.analysis,datapath.raw)
+
+    df = df.fillna("")
+
+    lane_list = []
+    for i,row in df.iterrows():
+        lane_list.append({"index":row["Lane"],
+                          "name":row["Name"],
+                          "group":row["Group"],
+                          "subgroup":row["SubGroup"],
+                          "color":row["Color_code"]})
+        
+    fig_html = get_page_fig4annotate(image_path,config,df)
+
+    if request.method == 'POST':
+        colors = request.form.getlist("color")
+        names = request.form.getlist("lane_name")
+        groups = request.form.getlist("lane_group")
+        subgroups = request.form.getlist("lane_subgroup")
+
+        if os.path.exists(datapath.annotation):
+            df = pd.read_csv(datapath.annotation,index_col=0)
+            
+    
+        else:
+            df = make_page_df(datapath.analysis,datapath.raw)
+        
+        
+
+
+        df["Color_code"] = colors
+        df["Name"] = names
+        df["Group"] = groups
+        df["SubGroups"] = subgroups
+
+        df = df.fillna("")
+
+        df.to_csv(datapath.annotation)
+ 
+    return render_template('annotate.html',sample_list=sample_list,page_fig=fig_html,lane_list=lane_list)
+
+
+@app.route(f"/experiment/<experiment_name>/PAGE/<run_name>/marker", methods=["GET","POST"])
+def page_marker(experiment_name,run_name):
+
+    exppath = ExperimentPath(header=app.config['UPLOAD_FOLDER'].replace("/","\\"),
+                             experiment=experiment_name)
+    
     session["experiment_name"] = experiment_name
     session["run_name"] = run_name
     session["type"] = "PAGE"
+    
+    datapath = exppath.data[run_name]
 
-    sample_list = get_samples(analysis_dir)
+    sample_list = get_samples(exppath.analysis)
 
-    config_file = os.path.join(data_dir,"config.json")
-    config = json.load(open(config_file))
+
+    config = json.load(open(datapath.config))
 
     lane_width = config["lane_width"]
     margin = config["margin"]
-    fig_html = get_page_fig(image_path,lane_width=int(lane_width),margin=float(margin))
 
-    return render_template('annotate.html',sample_list=sample_list,page_fig=fig_html)
+    fig_html = get_page_fig(datapath.raw,lane_width=int(lane_width),margin=float(margin))
+
+    marker_ids = get_page_lane_ids(datapath.raw,lane_width=int(lane_width),margin=float(margin))
+    
+    config = json.load(open(datapath.config))
+
+    if request.method == 'GET':
+        if config.get("marker"):
+            lane_id = config["marker"]["id"]
+        else:
+            lane_id = 0
+    
+    else:
+        lane_id = request.form.get('marker_id')
+
+
+    if config.get("marker"):
+        config["marker"]["id"] = lane_id
+    
+    else:
+        config["marker"] = {"id":lane_id}
+
+    
+    json_save(config,datapath.config)
+    
+
+    marker_html,peak_n = marker_check(datapath.analysis,datapath.raw,lane_id=int(lane_id))
+
+    peak_list = []
+
+
+    if config["marker"].get("annotate"):
+        for id,peak in enumerate(config["marker"]["annotate"]):
+            peak_list.append({"id":id,"kDa":peak})
+    
+    else:
+        for id in range(len(peak_n)):
+            peak_list.append({"id":id,"kDa":""})
+
+
+    return render_template('marker.html',
+                           sample_list=sample_list,
+                           page_fig=fig_html,
+                           marker_fig=marker_html,
+                           peak_list=peak_list,
+                           lane_id=int(lane_id),
+                           marker_ids=marker_ids)
+
+
+@app.route(f"/save_marker", methods=["POST"])
+def save_marker():
+    experiment_name = session["experiment_name"]
+    run_name = session["run_name"]
+    type = session["type"]
+
+    exppath = ExperimentPath(header=app.config['UPLOAD_FOLDER'].replace("/","\\"),
+                             experiment=experiment_name)
+    
+    datapath = exppath.data[run_name]
+
+    config = json.load(open(datapath.config))
+
+    config["marker"]["annotate"] = request.form.getlist("peak")
+
+    json_save(config,datapath.config)
+
+
+    return redirect(url_for(f"show_page",experiment_name=experiment_name,run_name=run_name))
+
+
+
+@app.route(f"/experiment/<experiment_name>/PAGE/<run_name>/show", methods=["GET","POST"])
+def show_page(experiment_name,run_name):
+    exppath = ExperimentPath(header=app.config['UPLOAD_FOLDER'].replace("/","\\"),
+                             experiment=experiment_name)
+    
+    sample_list = get_samples(exppath.analysis)
+    
+    datapath = exppath.data[run_name]
+
+    config = json.load(open(datapath.config))
+
+    fig_html = show_page_full(datapath.raw,config)
+
+
+
+    return render_template(f"show_page.html",
+                           sample_list=sample_list,
+                           page_fig=fig_html)
+
+
 
 if __name__ == '__main__':
     app.run(port=8000,debug=True)

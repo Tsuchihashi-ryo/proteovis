@@ -1,4 +1,7 @@
 {
-  "lane_width": "46",
-  "margin": "0.25"
+  "lane_width": "47",
+  "margin": "0.25",
+  "marker": {
+    "id": 0
+  }
 }
