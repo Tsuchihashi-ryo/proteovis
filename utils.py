@@ -78,30 +78,13 @@ def get_akta_fig(dir,first="UV 1_280",second="Cond",third=None,forth=None):
 
     fig,use_color_palette = pv.graph.annotate_fraction(fig,frac_df,phase_df)
 
-    fig.update_layout(
-           width=900,
-           height=600,
-           autosize=False
-    )
-
-
-    fig_html = pio.to_html(fig,full_html=False)
-    
-
-    return fig_html
+    return fig2html(fig,name="akta")
 
 
 def get_page_fig(image_path,lane_width=50,margin=0.2):
     fig = get_page_image(image_path,lane_width=lane_width,margin=margin)
 
-    fig.update_layout(
-           width=900,
-           height=600
-    )
-
-    fig_html = pio.to_html(fig,full_html=False)
-
-    return fig_html
+    return fig2html(fig,name="page")
 
 
 
@@ -132,6 +115,8 @@ def get_frac_data(dir):
         fraction_list = frac_df["Fraction_Start"].to_list()
 
         return fraction_list
+
+
 
 def get_page_config(dir):
     config_file = os.path.join(dir,"config.json").replace("\\","/")
@@ -220,31 +205,56 @@ def json_save(dict,path):
         json.dump(dict, f, indent=2, ensure_ascii=False)
 
 
-def show_page_full(image_path,config,lane_path=None):
+def show_page_full(image_path,config,df=None):
+        df = df.fillna("")
+
         lane_width = int(config["lane_width"])
         margin = float(config["margin"])
 
         page = pv.pypage.PageImage(image_path,lane_width=lane_width,margin=margin)
+
+        page.annotate_lanes(df["Name"].values.tolist())
+        page.palette = df["Color_code"].values.tolist()
+
+        palette = {}
+
+        
 
         marker = page.get_lane(index=int(config["marker"]["id"]),start=0).astype(float)
         marker = pv.pypage.Marker(marker)
         marker.annotate(config["marker"]["annotate"])
         
 
-        if lane_path:
-                fig = page.annotated_imshow(use_color_palette,rectangle=True)
+        if df is df:
+               fig = page.annotated_imshow(palette,rectangle=True)
         
         else:
                fig = page.check_image()
 
         fig = pv.pypage.write_marker(fig,marker)
 
+
+
+        return fig2html(fig,name="page")
+
+
+def fig2html(fig,name="image"):
         fig.update_layout(
                 width=900,
                 height=600
         )
 
-        fig_html = pio.to_html(fig,full_html=False)
+        config = {
+                'toImageButtonOptions': {
+                'format': 'svg', # one of png, svg, jpeg, webp
+                'filename': name,
+                'width': 900,
+                'height': 600,
+                'scale': 1 # Multiply title/legend/axis/canvas sizes by this factor
+                }
+                }
+
+        fig_html = pio.to_html(fig,full_html=False,config=config)
 
         return fig_html
 
@@ -262,12 +272,5 @@ def get_page_fig4annotate(image_path,config,df):
 
         fig = page.annotated_imshow(palette,rectangle=True)
 
-        fig.update_layout(
-                width=900,
-                height=600
-        )
-
-        fig_html = pio.to_html(fig,full_html=False)
-
-        return fig_html
+        return fig2html(fig,name="page")
 

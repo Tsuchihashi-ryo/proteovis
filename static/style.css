@@ -29,3 +29,14 @@ body {
   right: 10px;
   cursor: pointer;
 }
+td {
+  font-size: 0.8em;   /* 親要素のフォントサイズの80%にする */
+}
+
+tr {
+  font-size: 0.6em;   /* 親要素のフォントサイズの80%にする */
+}
+
+.color-picker {
+  max-width: 20px
+}

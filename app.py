@@ -251,13 +251,8 @@ def page_annotate(experiment_name,run_name):
 
         if os.path.exists(datapath.annotation):
             df = pd.read_csv(datapath.annotation,index_col=0)
-            
-    
         else:
             df = make_page_df(datapath.analysis,datapath.raw)
-        
-        
-
 
         df["Color_code"] = colors
         df["Name"] = names
@@ -267,8 +262,11 @@ def page_annotate(experiment_name,run_name):
         df = df.fillna("")
 
         df.to_csv(datapath.annotation)
- 
-    return render_template('annotate.html',sample_list=sample_list,page_fig=fig_html,lane_list=lane_list)
+
+        return redirect(url_for("page_marker",experiment_name=experiment_name,run_name=run_name))
+
+    elif request.method == 'GET':
+        return render_template('annotate.html',sample_list=sample_list,page_fig=fig_html,lane_list=lane_list)
 
 
 @app.route(f"/experiment/<experiment_name>/PAGE/<run_name>/marker", methods=["GET","POST"])
@@ -373,7 +371,9 @@ def show_page(experiment_name,run_name):
 
     config = json.load(open(datapath.config))
 
-    fig_html = show_page_full(datapath.raw,config)
+    df = pd.read_csv(datapath.annotation,index_col=0)
+
+    fig_html = show_page_full(datapath.raw,config,df)
 
 
 

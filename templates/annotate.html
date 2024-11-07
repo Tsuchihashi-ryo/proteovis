@@ -18,34 +18,99 @@
 
 {% block right_panel %}
 <h2 class="font-semibold mb-4">Set step name</h2>
-                <div class="space-y-2 bg-white p-1 rounded-lg mb-1">
-                    <form method="POST" enctype="multipart/form-data">
-                        <table>
-                            <thead>
-                              <tr>
-                                <th>Index</th>
-                                <th>Color</th>
-                                <th>Lane Name</th>
-                                <th>Group</th>
-                                <th>Subgroup</th>
-                            </tr>
-                            </thead>
-                            <tbody>
-                                {% for lane_data in lane_list %}
-                                    <tr>
-                                        <td> <p>{{lane_data.index}}</p></td>
-                                        <td><input id="color_{{lane_data.index}}" name="color" type="color" name="favorite_color" value="{{lane_data.color}}"></td>
-                                        <td><input id="lane_{{lane_data.index}}" name="lane_name" type="text" value="{{lane_data.name}}" class="border rounded px-2 py-1 w-full"></td>
-                                        <td><input id="lane_{{lane_data.group}}" name="lane_group" type="text" value="{{lane_data.group}}" class="border rounded px-2 py-1 w-full"></td>
-                                        <td><input id="lane_{{lane_data.subgroup}}" name="lane_subgroup" type="text" value="{{lane_data.subgroup}}" class="border rounded px-2 py-1 w-full"></td>
-                                    </tr>    
-                                {% endfor %}
-                            </tbody>
-                        </table>
+<div class="space-y-2 bg-white p-1 rounded-lg mb-1">
+    <form method="POST" enctype="multipart/form-data">
+        <table>
+            <thead>
+                <tr>
+                    <th>id</th>
+                    <th>Color</th>
+                    <th>Lane Name</th>
+                    <th>Group</th>
+                    <th>Subgroup</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for lane_data in lane_list %}
+                    <tr>
+                        <td><p>{{lane_data.index}}</p></td>
+                        <td><input id="color_{{lane_data.index}}" name="color" type="color" name="favorite_color" value="{{lane_data.color}}" class="color-picker"></td>  <!-- classを追加 -->
+                        <td><input id="lane_{{lane_data.index}}" name="lane_name" type="text" value="{{lane_data.name}}" class="border rounded px-2 py-1 w-full"></td>
+                        <td><input id="lane_{{lane_data.group}}" name="lane_group" type="text" value="{{lane_data.group}}" class="border rounded px-2 py-1 w-full"></td>
+                        <td><input id="lane_{{lane_data.subgroup}}" name="lane_subgroup" type="text" value="{{lane_data.subgroup}}" class="border rounded px-2 py-1 w-full"></td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
 
-                        <div class="mt-6 text-right">
-                            <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition duration-300">Next</button>
-                        </div>
-                    </form>
-                </div>
+        <div class="mt-6 text-right flex justify-between">
+            <button type="button" onclick="resetColors()" class="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition duration-300">Reset Colors</button>
+            <button type="button" onclick="applyRainbow()" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition duration-300">Apply Rainbow</button>
+            <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition duration-300">Save&Next</button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+
+{% block script_code %}
+<script>
+    function resetColors() {
+        const colorPickers = document.querySelectorAll('.color-picker');
+        colorPickers.forEach(input => {
+            input.value = '#FFFFFF';
+        });
+    }
+    
+    function applyRainbow() {
+        const colorPickers = document.querySelectorAll('.color-picker');
+        const numPickers = colorPickers.length;
+    
+        for (let i = 0; i < numPickers; i++) {
+            const hue = Math.round((i / numPickers) * 360); // 0～360度の色相を生成
+            const saturation = 100; // 彩度（パーセント）
+            const lightness = 50;  // 明度（パーセント）
+            const rgb = hslToRgb(hue, saturation, lightness); // HSVからRGBに変換
+            colorPickers[i].value = rgbToHex(rgb); // RGBを16進数に変換
+        }
+    }
+    
+    function hslToRgb(h, s, l){
+        s /= 100;
+        l /= 100;
+    
+        let c = (1 - Math.abs(2 * l - 1)) * s,
+            x = c * (1 - Math.abs((h / 60) % 2 - 1)),
+            m = l - c / 2,
+            r, g, b;
+    
+        if (0 <= h && h < 60) {
+            r = c; g = x; b = 0;
+        } else if (60 <= h && h < 120) {
+            r = x; g = c; b = 0;
+        } else if (120 <= h && h < 180) {
+            r = 0; g = c; b = x;
+        } else if (180 <= h && h < 240) {
+            r = 0; g = x; b = c;
+        } else if (240 <= h && h < 300) {
+            r = x; g = 0; b = c;
+        } else {
+            r = c; g = 0; b = x;
+        }
+    
+        r = Math.round(255 * (r + m));
+        g = Math.round(255 * (g + m));
+        b = Math.round(255 * (b + m));
+    
+        return [r, g, b];
+    }
+    
+    function rgbToHex(rgb) {
+        return "#" + rgb.map(x => {
+            const hex = x.toString(16);
+            return hex.length === 1 ? "0" + hex : hex;
+        }).join("");
+    }
+    
+</script>
 {% endblock %}

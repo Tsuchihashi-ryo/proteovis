@@ -5,6 +5,7 @@ import plotly.express as px
 import seaborn as sns
 from copy import copy
 from proteovis.pypage import pypage
+from matplotlib import colors
 
 
 
@@ -300,7 +301,12 @@ def annotate_fraction(fig,frac_df,phase=None,rectangle=True,text=True,annotation
       if not row["Fraction_Start"] in annotations:
         continue
 
-    color = row["Color_code"]#f"rgb({int(palette[i][0]*255)},{int(palette[i][1]*255)},{int(palette[i][2]*255)})"
+    color = row["Color_code"]
+    color = colors.to_rgba (color,0.5)
+    color = tuple([int(c*255) for c in color[:-1]]+[color[-1]])
+    color = f"rgba{color}"
+
+
     use_color_palette[row["Fraction_Start"]] = color#palette[i]
 
     if rectangle:
@@ -310,6 +316,7 @@ def annotate_fraction(fig,frac_df,phase=None,rectangle=True,text=True,annotation
                     xref="x",
                     yref="y",
                     line=dict(color=color,width=2),
+                    opacity=0.5
                     ))
 
     if text:
@@ -326,9 +333,7 @@ def annotate_fraction(fig,frac_df,phase=None,rectangle=True,text=True,annotation
                         font=dict(
                         size=10
                         ),
-                        bgcolor=color,
-
-                        opacity=0.8))
+                        bgcolor=color,))
 
    
     max_mL = frac_df["Max_UV"].max()*1.1
@@ -515,7 +520,12 @@ def annotate_page(image, lanes, lane_width=30,rectangle=True,text=True,palette_d
     if label == "":
       continue
 
+
     color = palette_dict[label]
+    color = colors.to_rgba (color,0.5)
+    color = tuple([int(c*255) for c in color[:-1]]+[color[-1]])
+    color = f"rgba{color}"
+
 
     if rectangle:
       lane_coord = pypage.get_lane(image,lane,lane_width=50)
@@ -523,23 +533,25 @@ def annotate_page(image, lanes, lane_width=30,rectangle=True,text=True,palette_d
       shapes.append(dict(type="rect",
                     x0=lane_coord.x0, y0=lane_coord.y0, x1=lane_coord.x1, y1=lane_coord.y1,
                     line=dict(color=color,width=2),
+                    opacity=0.5
                     ))
 
     if text:
+      fontsize = min(int(8/len(str(label))*18)+1,18)
       texts.append(dict(
                             x=lane, y=100,
                             xref="x",
                             yref="y",
-                            text=f"{label}",
+                            text=label,
                             align='center',
                             showarrow=False,
                             yanchor='bottom',
                             textangle=90,
                             font=dict(
-                            size=18,
+                            size=fontsize,
                             ),
                             bgcolor=color,
-                            opacity=0.8))
+                            ))
 
                             
   fig.update_layout(coloraxis_showscale=False)
