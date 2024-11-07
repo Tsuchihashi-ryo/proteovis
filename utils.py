@@ -195,8 +195,10 @@ class DataPath:
                         self.file_type = "PAGE"
                         self.config = os.path.join(self.analysis, "config.json").replace("\\","/")
                         self.annotation = os.path.join(self.analysis, "annotation.csv")
-                
-                self.raw = os.path.join(self.experiment, "raw_data",f"{name}.jpg")
+                        
+                        config = json.load(open(self.config))
+                        ext = config['ext']
+                        self.raw = os.path.join(self.experiment, "raw_data",f"{name}{ext}")
                 self.icon = os.path.join(self.analysis, "icon.png")
 
 

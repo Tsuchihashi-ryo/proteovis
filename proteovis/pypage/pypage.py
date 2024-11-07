@@ -160,6 +160,7 @@ def insert_mean(arr,lane_width,maximum,minimum=0,mergin=1.1):
 class PageImage:
   def __init__(self,image_path,lane_width=50,margin=0.2):
     self.image_ = cv2.imread(image_path)
+    
     self.lane_width = lane_width
     self.margin = margin
     self.image = detect_and_correct_tilt(self.image_)

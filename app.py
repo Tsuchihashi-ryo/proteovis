@@ -10,7 +10,7 @@ from utils import *
 import json
 import pandas as pd
 
-pio.orca.config.executable = 'C:/Users/jb60764/AppData/Local/Programs/orca/orca.exe'
+pio.orca.config.executable = 'C:/Users/jb60386/AppData/Local/Programs/orca/orca.exe'
 app = Flask(__name__,static_folder='./static', static_url_path='/static')
 app.secret_key = b'fewgagaehrae'
 app.jinja_env.auto_reload = True
@@ -75,9 +75,13 @@ def index():
                 akta_fig.write_image(os.path.join(data_dir,"icon.png"),engine="orca")
 
 
-            elif path[-3:] in ["png","jpg","iff"]:
+            elif path[-3:] in ["png","jpg","iff","tif"]:
                 page_fig = get_page_image(path)
+                ext = os.path.splitext(path)[-1]
                 page_fig.write_image(os.path.join(data_dir,"icon.png"),engine="orca")
+                config = {"ext":ext}
+                json_save(config,os.path.join(data_dir,"config.json"))
+                
 
     
         return redirect(url_for(f"experiment",experiment_name=experiment_name))#select(experiment_name)
@@ -92,10 +96,10 @@ def experiment(experiment_name):
     
     analysis_dir = exppath.analysis
 
-    sample_html = get_samples(analysis_dir)
+    sample_list = get_samples(analysis_dir)
 
 
-    return render_template('template.html',files=sample_html)
+    return render_template('show_page.html',sample_list=sample_list)
 
 @app.route(f"/experiment/<experiment_name>/AKTA/<run_name>/phase", methods=['GET', 'POST'])
 def akta(experiment_name,run_name):
@@ -150,8 +154,9 @@ def akta_pooling(experiment_name,run_name):
                                phase_list=phase_list,
                                fraction_list=fraction_list) #add right pannel data
         #return render_template('pool.html')
-        
-        
+
+
+
 @app.route(f"/experiment/<experiment_name>/PAGE/<run_name>/check", methods=["GET","POST"])
 def page_check(experiment_name,run_name):
     exppath = ExperimentPath(header=app.config['UPLOAD_FOLDER'],
@@ -178,21 +183,31 @@ def page_check(experiment_name,run_name):
         if os.path.exists(config_file):
             config = json.load(open(config_file))
             
-            lane_width = config["lane_width"]
-            margin = config["margin"]
-        
+            if config.get("lane_width"):
+                lane_width = config["lane_width"]
+                margin = config["margin"]
+            else:
+                lane_width = 45
+                margin = 0.2
+
         else:
             lane_width = 45
             margin = 0.2
-    
+
+
     else:
         lane_width = request.form.get('width-slider')
         margin = request.form.get('margin-slider')
         fig_html = get_page_fig(image_path,lane_width=int(lane_width),margin=float(margin))
 
+    if os.path.exists(config_file):
+        config = json.load(open(config_file))
+    
+    else:
+        config = []
 
-    config = {"lane_width":lane_width,
-            "margin":margin}
+    config["lane_width"] = lane_width
+    config["margin"] = margin
         
     with open(config_file, 'wt') as f:
         json.dump(config, f, indent=2, ensure_ascii=False)
@@ -206,6 +221,8 @@ def save_page():
     run_name = session["run_name"]
     type = session["type"]
     return redirect(url_for(f"page_annotate",experiment_name=experiment_name,run_name=run_name))
+
+
 
 
 @app.route(f"/experiment/<experiment_name>/PAGE/<run_name>/annotate", methods=["GET","POST"])
@@ -321,7 +338,7 @@ def page_marker(experiment_name,run_name):
 
 
     if config["marker"].get("annotate"):
-        for id,peak in enumerate(config["marker"]["annotate"]):
+        for id,(_,peak) in enumerate(zip(peak_n,config["marker"]["annotate"])):
             peak_list.append({"id":id,"kDa":peak})
     
     else:
