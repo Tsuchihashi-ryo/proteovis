@@ -143,6 +143,12 @@ def akta_pooling(experiment_name,run_name):
                                phase_list=phase_list,
                                fraction_list=fraction_list) #add right pannel data
         #return render_template('pool.html')
+    
+    else:
+        pool_names = request.form.getlist("poolname",)
+        region_list = request.form.getlist("fractionRegion")
+        print(pool_names, region_list)
+        return ",".join(pool_names+region_list)
         
         
 @app.route(f"/experiment/<experiment_name>/PAGE/<run_name>/check", methods=["GET","POST"])
