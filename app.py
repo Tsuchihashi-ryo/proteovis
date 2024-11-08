@@ -20,8 +20,13 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 
-@app.route('/', methods=['GET', 'POST'])
+@app.route('/', methods=['GET'])
 def index():
+    return render_template('index.html')
+
+
+@app.route('/new_experiment', methods=['GET', 'POST'])
+def new_experiment():
     if request.method == 'POST':
         experiment_name = request.form.get('experiment-name')
         user_name = request.form.get('user-name')
@@ -36,7 +41,7 @@ def index():
             os.makedirs(raw_dir, exist_ok=False) # exist_ok=Falseでエラーを発生させる
             os.makedirs(analysis_dir, exist_ok=False)
         except FileExistsError:
-            return render_template('index.html', error="Error: A folder with that name already exists for today. Please choose a different experiment name.")
+            return render_template('new_experiment.html', error="Error: A folder with that name already exists for today. Please choose a different experiment name.")
 
 
         files = request.files.getlist('files[]')
@@ -86,7 +91,27 @@ def index():
     
         return redirect(url_for(f"experiment",experiment_name=experiment_name))#select(experiment_name)
 
-    return render_template('index.html', error=None) #エラーメッセージをクリア
+    return render_template('new_experiment.html', error=None) #エラーメッセージをクリア
+
+
+@app.route('/open_experiment', methods=['GET'])
+def open_experiment():
+    experiments = glob(os.path.join(app.config['UPLOAD_FOLDER'],"*"))
+
+    exp_dic = {}
+
+    for exp in experiments:
+        exp_name = os.path.basename(exp)
+        exppath = ExperimentPath(header=app.config['UPLOAD_FOLDER'],
+                                experiment=exp_name)
+        data = list(exppath.data.keys())
+
+        exp_dic[exp_name] = data
+
+
+
+    return render_template('open_experiment.html', experiments=exp_dic)
+
 
 
 @app.route(f"/experiment/<experiment_name>")
@@ -99,25 +124,30 @@ def experiment(experiment_name):
     sample_list = get_samples(exppath)
 
 
-    return render_template('show_page.html',sample_list=sample_list)
+    return render_template('template4input.html',sample_list=sample_list)
 
 
-@app.route(f"/experiment/<experiment_name>/AKTA/<run_name>/show", methods=["GET","POST"])
+@app.route(f"/experiment/<experiment_name>/AKTA/<run_name>/show", methods=["GET"])
 def show_akta(experiment_name,run_name):
     exppath = ExperimentPath(header=app.config['UPLOAD_FOLDER'],
                              experiment=experiment_name)
     
-    data_dir = exppath.data[run_name].analysis
+    datapath = exppath.data[run_name]
+    
+    data_dir = datapath.analysis
 
     if request.method == 'GET':
         sample_list = get_samples(exppath)
 
         fig_html = get_akta_fig(data_dir)
 
+    info = sampling_data(datapath)
+
 
     return render_template('show_akta.html',
                            sample_list=sample_list,
-                           akta_fig=fig_html)
+                           akta_fig=fig_html,
+                           info=info)
 
 
 @app.route(f"/experiment/<experiment_name>/AKTA/<run_name>/phase", methods=['GET', 'POST'])
@@ -255,7 +285,7 @@ def page_check(experiment_name,run_name):
 
 
     if request.method == 'GET':
-        fig_html = get_page_fig(image_path)
+        
 
         if os.path.exists(config_file):
             config = json.load(open(config_file))
@@ -285,6 +315,8 @@ def page_check(experiment_name,run_name):
 
     config["lane_width"] = lane_width
     config["margin"] = margin
+
+    fig_html = get_page_fig(image_path,lane_width=lane_width,margin=margin)
         
     with open(config_file, 'wt') as f:
         json.dump(config, f, indent=2, ensure_ascii=False)
@@ -469,10 +501,13 @@ def show_page(experiment_name,run_name):
 
     fig_html = show_page_full(datapath.raw,config,df)
 
+    info = sampling_data(datapath)
+
 
     return render_template(f"show_page.html",
                            sample_list=sample_list,
-                           page_fig=fig_html)
+                           page_fig=fig_html,
+                           info=info)
 
 
 

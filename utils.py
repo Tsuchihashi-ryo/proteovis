@@ -75,7 +75,7 @@ def get_akta_fig(dir,first="UV 1_280",second="Cond",third=None,forth=None):
 
 
 def get_page_fig(image_path,lane_width=50,margin=0.2):
-    fig = get_page_image(image_path,lane_width=lane_width,margin=margin)
+    fig = get_page_image(image_path,lane_width=int(lane_width),margin=float(margin))
 
     return fig2html(fig,name="page")
 
