@@ -122,21 +122,30 @@ def get_fraction_rectangle(frac_df,palette="rainbow"):
     return frac_df
 
 
-def pooling_fraction(df,pooling,name="pool"):
+def pooling_fraction(df,start,end,name="pool"):
   assert not name in df["Fraction_Start"].values
 
   df = df.copy()
 
-  pool = df[df["Fraction_Start"].isin(pooling)]
+  if not "Pool" in df.columns:
+     df["Pool"] = ""
+
+  start_index = df[df["Fraction_Start"] == start].index[0]
+  end_index = df[df["Fraction_Start"] == end].index[0]
+
+  pool = df[(df.index>=start_index)&(df.index<=end_index)]
 
   start_ml = pool["Start_mL"].min()
   end_ml = pool["End_mL"].max()
   max_uv = pool["Max_UV"].max()
   color_code = pool["Color_code"].iloc[len(pool)//2]
+  from_fraction = ";".join(pool["Fraction_Start"].values)
 
   df = df.loc[[i for i in df.index if not i in pool.index]]
-  df.loc[pool.index[0]] = (name,start_ml,end_ml,max_uv,color_code)
-  return df.sort_values("Start_mL")
+  df.loc[pool.index[0]] = (name,start_ml,end_ml,max_uv,color_code,from_fraction)
+  df = df.sort_values("Start_mL")
+  df = df.reset_index(drop=True)
+  return df
 
 
 def find_phase(df):

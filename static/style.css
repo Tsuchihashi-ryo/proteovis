@@ -6,6 +6,10 @@ body {
   margin: 0;
 }
 
+div.clickable {
+  cursor: pointer;
+}
+
 #popup {
   display: none;
   position: fixed;

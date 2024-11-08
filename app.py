@@ -96,21 +96,39 @@ def experiment(experiment_name):
     
     analysis_dir = exppath.analysis
 
-    sample_list = get_samples(analysis_dir)
+    sample_list = get_samples(exppath)
 
 
     return render_template('show_page.html',sample_list=sample_list)
+
+
+@app.route(f"/experiment/<experiment_name>/AKTA/<run_name>/show", methods=["GET","POST"])
+def show_akta(experiment_name,run_name):
+    exppath = ExperimentPath(header=app.config['UPLOAD_FOLDER'],
+                             experiment=experiment_name)
+    
+    data_dir = exppath.data[run_name].analysis
+
+    if request.method == 'GET':
+        sample_list = get_samples(exppath)
+
+        fig_html = get_akta_fig(data_dir)
+
+
+    return render_template('show_akta.html',
+                           sample_list=sample_list,
+                           akta_fig=fig_html)
+
 
 @app.route(f"/experiment/<experiment_name>/AKTA/<run_name>/phase", methods=['GET', 'POST'])
 def akta(experiment_name,run_name):
     exppath = ExperimentPath(header=app.config['UPLOAD_FOLDER'],
                              experiment=experiment_name)
     
-    analysis_dir = exppath.analysis
     data_dir = exppath.data[run_name].analysis
 
     if request.method == 'GET':
-        sample_list = get_samples(analysis_dir)
+        sample_list = get_samples(exppath)
 
         fig_html = get_akta_fig(data_dir)
 
@@ -142,7 +160,7 @@ def akta_pooling(experiment_name,run_name):
     
 
     if request.method == 'GET':
-        sample_list = get_samples(analysis_dir)
+        sample_list = get_samples(exppath)
         fig_html = get_akta_fig(data_dir)
         phase_list = get_phase_data(data_dir)
         #right pannel 
@@ -155,6 +173,65 @@ def akta_pooling(experiment_name,run_name):
                                fraction_list=fraction_list) #add right pannel data
         #return render_template('pool.html')
 
+
+@app.route(f"/experiment/<experiment_name>/AKTA/<run_name>/fraction", methods=['GET', 'POST'])
+def akta_fraction(experiment_name,run_name):
+    exppath = ExperimentPath(header=app.config['UPLOAD_FOLDER'],
+                             experiment=experiment_name)
+    
+    analysis_dir = exppath.analysis
+    data_dir = exppath.data[run_name].analysis
+    
+
+    if request.method == 'GET':
+        sample_list = get_samples(exppath)
+        fig_html = get_akta_fig(data_dir)
+        #right pannel 
+        fraction_df = get_frac_df(data_dir)
+
+        if not "Name" in fraction_df.columns:
+            fraction_df["Name"] = fraction_df["Fraction_Start"]
+        
+        if not "Pool" in fraction_df.columns:
+            fraction_df["Pool"] = ""
+        
+        if not "Show" in fraction_df.columns:
+            fraction_df["Show"] = True
+
+        pooling_df = fraction_pooling(fraction_df)
+
+
+        fraction_list = []
+        for i,row in pooling_df.iterrows():
+            fraction_list.append({"index":i,
+                            "name":row["Name"],
+                            "pool":row["From"],
+                            "show":row["Show"],
+                            "color":row["Color_code"]})
+            
+        return render_template('fraction.html',
+                               sample_list=sample_list,
+                               akta_fig=fig_html, 
+                               fraction_list=fraction_list)
+        
+
+    if request.method == 'POST':
+        colors = request.form.getlist("color")
+        names = request.form.getlist("fraction_name")
+        shows = request.form.getlist("show")
+
+        fraction_df = get_frac_df(data_dir)
+
+        fraction_df["Color_code"] = colors
+        df["Name"] = names
+        df["Group"] = groups
+        df["SubGroups"] = subgroups
+
+        df = df.fillna("")
+
+        df.to_csv(datapath.annotation)
+
+     #add right pannel data
 
 
 @app.route(f"/experiment/<experiment_name>/PAGE/<run_name>/check", methods=["GET","POST"])
@@ -174,7 +251,7 @@ def page_check(experiment_name,run_name):
     session["run_name"] = run_name
     session["type"] = "PAGE"
 
-    sample_list = get_samples(analysis_dir)
+    sample_list = get_samples(exppath)
 
 
     if request.method == 'GET':
@@ -236,7 +313,7 @@ def page_annotate(experiment_name,run_name):
     image_path = exppath.data[run_name].raw
     config_file = exppath.data[run_name].config
 
-    sample_list = get_samples(analysis_dir)
+    sample_list = get_samples(exppath)
     
     config = json.load(open(config_file))
     
@@ -298,7 +375,7 @@ def page_marker(experiment_name,run_name):
     
     datapath = exppath.data[run_name]
 
-    sample_list = get_samples(exppath.analysis)
+    sample_list = get_samples(exppath)
 
 
     config = json.load(open(datapath.config))
@@ -382,7 +459,7 @@ def show_page(experiment_name,run_name):
     exppath = ExperimentPath(header=app.config['UPLOAD_FOLDER'].replace("/","\\"),
                              experiment=experiment_name)
     
-    sample_list = get_samples(exppath.analysis)
+    sample_list = get_samples(exppath)
     
     datapath = exppath.data[run_name]
 
@@ -391,7 +468,6 @@ def show_page(experiment_name,run_name):
     df = pd.read_csv(datapath.annotation,index_col=0)
 
     fig_html = show_page_full(datapath.raw,config,df)
-
 
 
     return render_template(f"show_page.html",
