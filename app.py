@@ -8,8 +8,9 @@ import pandas as pd
 import seaborn as sns
 from utils import *
 import json
+import pandas as pd
 
-pio.orca.config.executable = 'C:/Users/jb60764/AppData/Local/Programs/orca/orca.exe'
+pio.orca.config.executable = 'C:/Users/jb60386/AppData/Local/Programs/orca/orca.exe'
 app = Flask(__name__,static_folder='./static', static_url_path='/static')
 app.secret_key = b'fewgagaehrae'
 app.jinja_env.auto_reload = True
@@ -19,8 +20,13 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 
-@app.route('/', methods=['GET', 'POST'])
+@app.route('/', methods=['GET'])
 def index():
+    return render_template('index.html')
+
+
+@app.route('/new_experiment', methods=['GET', 'POST'])
+def new_experiment():
     if request.method == 'POST':
         experiment_name = request.form.get('experiment-name')
         user_name = request.form.get('user-name')
@@ -35,7 +41,7 @@ def index():
             os.makedirs(raw_dir, exist_ok=False) # exist_ok=Falseでエラーを発生させる
             os.makedirs(analysis_dir, exist_ok=False)
         except FileExistsError:
-            return render_template('index.html', error="Error: A folder with that name already exists for today. Please choose a different experiment name.")
+            return render_template('new_experiment.html', error="Error: A folder with that name already exists for today. Please choose a different experiment name.")
 
 
         files = request.files.getlist('files[]')
@@ -74,34 +80,85 @@ def index():
                 akta_fig.write_image(os.path.join(data_dir,"icon.png"),engine="orca")
 
 
-            elif path[-3:] in ["png","jpg","iff"]:
+            elif path[-3:] in ["png","jpg","iff","tif"]:
                 page_fig = get_page_image(path)
+                ext = os.path.splitext(path)[-1]
                 page_fig.write_image(os.path.join(data_dir,"icon.png"),engine="orca")
+                config = {"ext":ext}
+                json_save(config,os.path.join(data_dir,"config.json"))
+                
 
     
         return redirect(url_for(f"experiment",experiment_name=experiment_name))#select(experiment_name)
 
-    return render_template('index.html', error=None) #エラーメッセージをクリア
+    return render_template('new_experiment.html', error=None) #エラーメッセージをクリア
+
+
+@app.route('/open_experiment', methods=['GET'])
+def open_experiment():
+    experiments = glob(os.path.join(app.config['UPLOAD_FOLDER'],"*"))
+
+    exp_dic = {}
+
+    for exp in experiments:
+        exp_name = os.path.basename(exp)
+        exppath = ExperimentPath(header=app.config['UPLOAD_FOLDER'],
+                                experiment=exp_name)
+        data = list(exppath.data.keys())
+
+        exp_dic[exp_name] = data
+
+
+
+    return render_template('open_experiment.html', experiments=exp_dic)
+
 
 
 @app.route(f"/experiment/<experiment_name>")
 def experiment(experiment_name):
-    exp_dir = os.path.join(app.config['UPLOAD_FOLDER'], f"{experiment_name}")
-    analysis_dir = os.path.join(exp_dir, "analysis")
+    exppath = ExperimentPath(header=app.config['UPLOAD_FOLDER'],
+                             experiment=experiment_name)
+    
+    analysis_dir = exppath.analysis
 
-    sample_html = get_samples(analysis_dir)
+    sample_list = get_samples(exppath)
 
 
-    return render_template('template.html',files=sample_html)
+    return render_template('template4input.html',sample_list=sample_list)
+
+
+@app.route(f"/experiment/<experiment_name>/AKTA/<run_name>/show", methods=["GET"])
+def show_akta(experiment_name,run_name):
+    exppath = ExperimentPath(header=app.config['UPLOAD_FOLDER'],
+                             experiment=experiment_name)
+    
+    datapath = exppath.data[run_name]
+    
+    data_dir = datapath.analysis
+
+    if request.method == 'GET':
+        sample_list = get_samples(exppath)
+
+        fig_html = get_akta_fig(data_dir)
+
+    info = sampling_data(datapath)
+
+
+    return render_template('show_akta.html',
+                           sample_list=sample_list,
+                           akta_fig=fig_html,
+                           info=info)
+
 
 @app.route(f"/experiment/<experiment_name>/AKTA/<run_name>/phase", methods=['GET', 'POST'])
 def akta(experiment_name,run_name):
-    exp_dir = os.path.join(app.config['UPLOAD_FOLDER'], f"{experiment_name}")
-    analysis_dir = os.path.join(exp_dir, "analysis")
-    data_dir = os.path.join(analysis_dir, f"{run_name}")
+    exppath = ExperimentPath(header=app.config['UPLOAD_FOLDER'],
+                             experiment=experiment_name)
+    
+    data_dir = exppath.data[run_name].analysis
 
     if request.method == 'GET':
-        sample_list = get_samples(analysis_dir)
+        sample_list = get_samples(exppath)
 
         fig_html = get_akta_fig(data_dir)
 
@@ -125,13 +182,15 @@ def akta(experiment_name,run_name):
 
 @app.route(f"/experiment/<experiment_name>/AKTA/<run_name>/pooling", methods=['GET', 'POST'])
 def akta_pooling(experiment_name,run_name):
-    exp_dir = os.path.join(app.config['UPLOAD_FOLDER'], f"{experiment_name}")
-    analysis_dir = os.path.join(exp_dir, "analysis")
-    data_dir = os.path.join(analysis_dir, f"{run_name}")
+    exppath = ExperimentPath(header=app.config['UPLOAD_FOLDER'],
+                             experiment=experiment_name)
+    
+    analysis_dir = exppath.analysis
+    data_dir = exppath.data[run_name].analysis
     
 
     if request.method == 'GET':
-        sample_list = get_samples(analysis_dir)
+        sample_list = get_samples(exppath)
         fig_html = get_akta_fig(data_dir)
         phase_list = get_phase_data(data_dir)
         #right pannel 
@@ -143,47 +202,122 @@ def akta_pooling(experiment_name,run_name):
                                phase_list=phase_list,
                                fraction_list=fraction_list) #add right pannel data
         #return render_template('pool.html')
+
+
+@app.route(f"/experiment/<experiment_name>/AKTA/<run_name>/fraction", methods=['GET', 'POST'])
+def akta_fraction(experiment_name,run_name):
+    exppath = ExperimentPath(header=app.config['UPLOAD_FOLDER'],
+                             experiment=experiment_name)
+    
+    analysis_dir = exppath.analysis
+    data_dir = exppath.data[run_name].analysis
+    
+
+    if request.method == 'GET':
+        sample_list = get_samples(exppath)
+        fig_html = get_akta_fig(data_dir)
+        #right pannel 
+        fraction_df = get_frac_df(data_dir)
+
+        if not "Name" in fraction_df.columns:
+            fraction_df["Name"] = fraction_df["Fraction_Start"]
         
+        if not "Pool" in fraction_df.columns:
+            fraction_df["Pool"] = ""
         
+        if not "Show" in fraction_df.columns:
+            fraction_df["Show"] = True
+
+        pooling_df = fraction_pooling(fraction_df)
+
+
+        fraction_list = []
+        for i,row in pooling_df.iterrows():
+            fraction_list.append({"index":i,
+                            "name":row["Name"],
+                            "pool":row["From"],
+                            "show":row["Show"],
+                            "color":row["Color_code"]})
+            
+        return render_template('fraction.html',
+                               sample_list=sample_list,
+                               akta_fig=fig_html, 
+                               fraction_list=fraction_list)
+        
+
+    if request.method == 'POST':
+        colors = request.form.getlist("color")
+        names = request.form.getlist("fraction_name")
+        shows = request.form.getlist("show")
+
+        fraction_df = get_frac_df(data_dir)
+
+        fraction_df["Color_code"] = colors
+        df["Name"] = names
+        df["Group"] = groups
+        df["SubGroups"] = subgroups
+
+        df = df.fillna("")
+
+        df.to_csv(datapath.annotation)
+
+     #add right pannel data
+
+
 @app.route(f"/experiment/<experiment_name>/PAGE/<run_name>/check", methods=["GET","POST"])
 def page_check(experiment_name,run_name):
-    exp_dir = os.path.join(app.config['UPLOAD_FOLDER'], f"{experiment_name}")
-    analysis_dir = os.path.join(exp_dir, "analysis")
-    raw_dir = os.path.join(exp_dir, "raw_data")
-    image_path = os.path.join(raw_dir, f"{run_name}.jpg")
-    data_dir = os.path.join(analysis_dir, f"{run_name}")
+    exppath = ExperimentPath(header=app.config['UPLOAD_FOLDER'],
+                             experiment=experiment_name)
+    
+    analysis_dir = exppath.analysis
+    data_dir = exppath.data[run_name].analysis
+    raw_dir = exppath.raw
+
+    image_path = exppath.data[run_name].raw
+    config_file = exppath.data[run_name].config
+
 
     session["experiment_name"] = experiment_name
     session["run_name"] = run_name
     session["type"] = "PAGE"
 
-    sample_list = get_samples(analysis_dir)
+    sample_list = get_samples(exppath)
 
-    config_file = os.path.join(data_dir,"config.json")
 
     if request.method == 'GET':
-        fig_html = get_page_fig(image_path)
+        
 
         if os.path.exists(config_file):
             config = json.load(open(config_file))
             
-            lane_width = config["lane_width"]
-            margin = config["margin"]
-        
+            if config.get("lane_width"):
+                lane_width = config["lane_width"]
+                margin = config["margin"]
+            else:
+                lane_width = 45
+                margin = 0.2
+
         else:
             lane_width = 45
             margin = 0.2
-    
+
+
     else:
         lane_width = request.form.get('width-slider')
         margin = request.form.get('margin-slider')
         fig_html = get_page_fig(image_path,lane_width=int(lane_width),margin=float(margin))
 
+    if os.path.exists(config_file):
+        config = json.load(open(config_file))
+    
+    else:
+        config = []
 
-    config = {"lane_width":lane_width,
-            "margin":margin}
+    config["lane_width"] = lane_width
+    config["margin"] = margin
+
+    fig_html = get_page_fig(image_path,lane_width=lane_width,margin=margin)
         
-    config_file = os.path.join(data_dir,'config.json')
     with open(config_file, 'wt') as f:
         json.dump(config, f, indent=2, ensure_ascii=False)
         
@@ -198,30 +332,184 @@ def save_page():
     return redirect(url_for(f"page_annotate",experiment_name=experiment_name,run_name=run_name))
 
 
+
+
 @app.route(f"/experiment/<experiment_name>/PAGE/<run_name>/annotate", methods=["GET","POST"])
 def page_annotate(experiment_name,run_name):
-    exp_dir = os.path.join(app.config['UPLOAD_FOLDER'], f"{experiment_name}")
-    analysis_dir = os.path.join(exp_dir, "analysis")
-    raw_dir = os.path.join(exp_dir, "raw_data")
-    data_dir = os.path.join(analysis_dir, f"{run_name}")
+    exppath = ExperimentPath(header=app.config['UPLOAD_FOLDER'],
+                             experiment=experiment_name)
+    
+    analysis_dir = exppath.analysis
+    datapath = exppath.data[run_name]
 
-    image_path = os.path.join(raw_dir, f"{run_name}.jpg")
-    config_file = os.path.join(data_dir,"config.json")
+    image_path = exppath.data[run_name].raw
+    config_file = exppath.data[run_name].config
 
+    sample_list = get_samples(exppath)
+    
+    config = json.load(open(config_file))
+    
+
+    if os.path.exists(datapath.annotation):
+        df = pd.read_csv(datapath.annotation)
+        
+    
+    else:
+        df = make_page_df(datapath.analysis,datapath.raw)
+
+    df = df.fillna("")
+
+    lane_list = []
+    for i,row in df.iterrows():
+        lane_list.append({"index":row["Lane"],
+                          "name":row["Name"],
+                          "group":row["Group"],
+                          "subgroup":row["SubGroup"],
+                          "color":row["Color_code"]})
+        
+    fig_html = get_page_fig4annotate(image_path,config,df)
+
+    if request.method == 'POST':
+        colors = request.form.getlist("color")
+        names = request.form.getlist("lane_name")
+        groups = request.form.getlist("lane_group")
+        subgroups = request.form.getlist("lane_subgroup")
+
+        if os.path.exists(datapath.annotation):
+            df = pd.read_csv(datapath.annotation,index_col=0)
+        else:
+            df = make_page_df(datapath.analysis,datapath.raw)
+
+        df["Color_code"] = colors
+        df["Name"] = names
+        df["Group"] = groups
+        df["SubGroups"] = subgroups
+
+        df = df.fillna("")
+
+        df.to_csv(datapath.annotation)
+
+        return redirect(url_for("page_marker",experiment_name=experiment_name,run_name=run_name))
+
+    elif request.method == 'GET':
+        return render_template('annotate.html',sample_list=sample_list,page_fig=fig_html,lane_list=lane_list)
+
+
+@app.route(f"/experiment/<experiment_name>/PAGE/<run_name>/marker", methods=["GET","POST"])
+def page_marker(experiment_name,run_name):
+
+    exppath = ExperimentPath(header=app.config['UPLOAD_FOLDER'].replace("/","\\"),
+                             experiment=experiment_name)
+    
     session["experiment_name"] = experiment_name
     session["run_name"] = run_name
     session["type"] = "PAGE"
+    
+    datapath = exppath.data[run_name]
 
-    sample_list = get_samples(analysis_dir)
+    sample_list = get_samples(exppath)
 
-    config_file = os.path.join(data_dir,"config.json")
-    config = json.load(open(config_file))
+
+    config = json.load(open(datapath.config))
 
     lane_width = config["lane_width"]
     margin = config["margin"]
-    fig_html = get_page_fig(image_path,lane_width=int(lane_width),margin=float(margin))
 
-    return render_template('annotate.html',sample_list=sample_list,page_fig=fig_html)
+    fig_html = get_page_fig(datapath.raw,lane_width=int(lane_width),margin=float(margin))
+
+    marker_ids = get_page_lane_ids(datapath.raw,lane_width=int(lane_width),margin=float(margin))
+    
+    config = json.load(open(datapath.config))
+
+    if request.method == 'GET':
+        if config.get("marker"):
+            lane_id = config["marker"]["id"]
+        else:
+            lane_id = 0
+    
+    else:
+        lane_id = request.form.get('marker_id')
+
+
+    if config.get("marker"):
+        config["marker"]["id"] = lane_id
+    
+    else:
+        config["marker"] = {"id":lane_id}
+
+    
+    json_save(config,datapath.config)
+    
+
+    marker_html,peak_n = marker_check(datapath.analysis,datapath.raw,lane_id=int(lane_id))
+
+    peak_list = []
+
+
+    if config["marker"].get("annotate"):
+        for id,(_,peak) in enumerate(zip(peak_n,config["marker"]["annotate"])):
+            peak_list.append({"id":id,"kDa":peak})
+    
+    else:
+        for id in range(len(peak_n)):
+            peak_list.append({"id":id,"kDa":""})
+
+
+    return render_template('marker.html',
+                           sample_list=sample_list,
+                           page_fig=fig_html,
+                           marker_fig=marker_html,
+                           peak_list=peak_list,
+                           lane_id=int(lane_id),
+                           marker_ids=marker_ids)
+
+
+@app.route(f"/save_marker", methods=["POST"])
+def save_marker():
+    experiment_name = session["experiment_name"]
+    run_name = session["run_name"]
+    type = session["type"]
+
+    exppath = ExperimentPath(header=app.config['UPLOAD_FOLDER'].replace("/","\\"),
+                             experiment=experiment_name)
+    
+    datapath = exppath.data[run_name]
+
+    config = json.load(open(datapath.config))
+
+    config["marker"]["annotate"] = request.form.getlist("peak")
+
+    json_save(config,datapath.config)
+
+
+    return redirect(url_for(f"show_page",experiment_name=experiment_name,run_name=run_name))
+
+
+
+@app.route(f"/experiment/<experiment_name>/PAGE/<run_name>/show", methods=["GET","POST"])
+def show_page(experiment_name,run_name):
+    exppath = ExperimentPath(header=app.config['UPLOAD_FOLDER'].replace("/","\\"),
+                             experiment=experiment_name)
+    
+    sample_list = get_samples(exppath)
+    
+    datapath = exppath.data[run_name]
+
+    config = json.load(open(datapath.config))
+
+    df = pd.read_csv(datapath.annotation,index_col=0)
+
+    fig_html = show_page_full(datapath.raw,config,df)
+
+    info = sampling_data(datapath)
+
+
+    return render_template(f"show_page.html",
+                           sample_list=sample_list,
+                           page_fig=fig_html,
+                           info=info)
+
+
 
 if __name__ == '__main__':
     app.run(port=8000,debug=True)

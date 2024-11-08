@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="shift-js">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create New Experiment</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Roboto', sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center">
+    <div class="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
+        <h1 class="text-3xl font-bold text-blue-600 mb-6">Create new experiment</h1>
+        {% if error: %}
+        <p style="color: red;">{{ error }}</p>
+        {% endif %}
+        <form method="POST" enctype="multipart/form-data">  <!-- enctypeを追加 -->
+            <div class="mb-4">
+                <label for="experiment-name" class="block text-sm font-medium text-gray-700 mb-1">Experiment name</label>
+                <input type="text" id="experiment-name" name="experiment-name" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" value="yymmdd_capro-Q fracttiona">
+            </div>
+            <div class="mb-4">
+                <label for="user-name" class="block text-sm font-medium text-gray-700 mb-1">User name</label>
+                <input type="text" id="user-name" name="user-name" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" value="Yamada Hanako">
+            </div>
+            <div class="mb-6">
+                <label for="project-code" class="block text-sm font-medium text-gray-700 mb-1">Project code</label>
+                <input type="text" id="project-code" name="project-code" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" value="01KA001">
+            </div>
+                <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center mb-6" id="dropZone">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto text-blue-500 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                    </svg>
+                    <p class="text-gray-600 mb-1">Drag and drop here</p>
+                    <!--<p class="text-gray-600">or</p>-->
+                    <input type="file" id="file-upload" name="files[]" multiple class="hidden"> <!-- name属性を"files[]"に変更 -->
+                    <button type="button" class="text-blue-500 hover:text-blue-600 font-medium mt-1 focus:outline-none" onclick="document.getElementById('file-upload').click()"></button>
+                    <div id="fileList"></div>
+                </div>
+                <button type="submit" class="w-full bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 transition duration-300 ease-in-out">Next</button>
+            </form>
+        </div>
+        
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                const dropZone = document.getElementById('dropZone');
+                const fileInput = document.getElementById('file-upload');
+                const fileListDisplay = document.getElementById('fileList');
+        
+                //if (!dropZone || !fileInput || !fileListDisplay) {
+                if (!dropZone || !fileListDisplay) {
+                    console.error("Error: One or more elements not found.");
+                    return;
+                }
+
+                dropZone.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    dropZone.classList.add('border-blue-500');
+                });
+
+                dropZone.addEventListener('dragleave', () => {
+                    dropZone.classList.remove('border-blue-500');
+                });
+
+                let allFiles = []; // 全てのファイル情報を保持する配列
+
+                function updateFileList(files) {
+                    files.forEach(file => {
+                        const listItem = document.createElement('li');
+                        listItem.textContent = file.name;
+                        fileListDisplay.appendChild(listItem);
+                    });
+                }
+
+                dropZone.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    dropZone.classList.remove('border-blue-500');
+
+                    const droppedFiles = Array.from(e.dataTransfer.files);
+                    allFiles = allFiles.concat(droppedFiles); // ファイル情報を配列に追加
+
+                    updateFileList(droppedFiles);
+
+                    // ダミーのinput要素を作成し、すべてのファイルを設定
+                    let dataTransfer = new DataTransfer();
+                    allFiles.forEach(file => dataTransfer.items.add(file));
+                    fileInput.files = dataTransfer.files;
+                });
+
+                fileInput.addEventListener('change', (e) => {
+                   const selectedFiles = Array.from(e.files);
+                    allFiles = allFiles.concat(e.files);
+
+                    updateFileList(e.files);
+
+                    // 複数選択を可能にするため、値をクリア (必須)
+                    fileInput.value = '';
+                });
+            });
+        </script>
+</body>
+</html>

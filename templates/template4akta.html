@@ -1,0 +1,17 @@
+{% extends "template4input.html" %}
+
+{% block script_code %}
+{% endblock %}
+
+{% block left_panel %}
+    {{ super() }}
+{% endblock %}
+
+{% block middle_panel %}
+{{akta_fig | safe}}
+</br>
+<p>if y not equal UV 280nm, please hide fraction/phase annotation.(not work autoscale)</p>
+{% endblock %}
+
+{% block right_panel %}
+{% endblock %}
