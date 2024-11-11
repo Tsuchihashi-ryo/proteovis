@@ -1,0 +1,91 @@
+{% extends "template4input.html" %}
+
+{% block left_panel %}
+    {{ super() }}
+{% endblock %}
+
+{% block middle_panel %}
+    {{page_fig | safe}}
+{% endblock %}
+
+{% block right_panel %}
+<div class="space-y-2 bg-white p-1 rounded-lg mb-1">
+    <label for="imageSelect">Marker Type:</label>
+    <select id="imageSelect" name="imageSelect">
+        <option value=""></option>
+        <option value={{ url_for('static', filename='ref_data/marker/SeeBlue Plus2.png')}}>SeeBlue Plus2</option>
+        <option value="image2.png">Image 2</option>
+        <option value="image3.gif">Image 3</option>  <!-- Add more options as needed -->
+      </select>
+      
+      <div id="popup">
+        <img id="popupImage" src="" alt="Popup Image">
+        <span id="close-button">X</span>
+      </div>
+
+    
+
+    
+        <div class="grid grid-cols-subgrid gap-4 col-span-2">
+            <div class="col-start-1 space-y-4">
+                <form method="POST">
+                <label for="marker_id">Marker ID:</label>
+                <select name="marker_id" id="marker_id">
+                    {% for marker_id in marker_ids %}
+                        {% if marker_id == lane_id %}
+                            <option value="{{ marker_id }}" selected>{{ marker_id }}</option>
+                        {% else %}
+                            <option value="{{ marker_id }}">{{ marker_id }}</option>
+                        {% endif %}
+                    {% endfor %}
+                </select>
+                <button type="submit" class="w-full bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 transition duration-300 ease-in-out">Reload</button>
+                </form>
+                {{marker_fig | safe}}
+            </div>
+            <div class="col-start-2 space-y-4">
+                <form method="POST" enctype="multipart/form-data" action="/save_marker">
+                {% for peak in peak_list %}
+                <div class="flex items-center space-x-2">
+                    <input id="peak_{{peak.id}}" name="peak" type="text" value="{{peak.kDa}}" class="border rounded px-1 py-1 w-full">
+                    <label for="peak_{{peak.id}}">{{peak.id}}</label>
+                </div>
+        
+            
+            {% endfor %}
+            </div>
+        </div>
+                <button type="submit" class="w-full bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 transition duration-300 ease-in-out">Next</button>
+    </form>
+</div>
+{% endblock %}
+
+
+{% block script_code %}
+<script>
+    const selectElement = document.getElementById('imageSelect');
+    const popup = document.getElementById('popup');
+    const popupImage = document.getElementById('popupImage');
+    const closeButton = document.getElementById('close-button');
+
+    selectElement.addEventListener('change', () => {
+    const selectedValue = selectElement.value;
+    if (selectedValue) {
+        popupImage.src = selectedValue;
+        popup.style.display = 'block';
+    } else {
+        popup.style.display = 'none';
+    }
+    });
+
+    closeButton.addEventListener('click', () => {
+    popup.style.display = 'none';
+    });
+
+    popup.addEventListener('click', (event) => {
+    if (event.target === popup) {  //Click outside the image to close
+        popup.style.display = 'none';
+    }
+    });
+</script>
+{% endblock %}

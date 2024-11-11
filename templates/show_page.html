@@ -1,0 +1,15 @@
+{% extends "template4page.html" %}
+
+
+{% block right_panel %}
+<div class="flex flex-wrap justify-center gap-4"> <!-- Tailwind CSS -->
+    <form method="GET" action="/experiment/{{info.experiment}}/{{info.data_type}}/{{info.name}}/check">
+        <button type="submit" class="text-white p-4 rounded-lg bg-[#1f3a61]">Check</button>
+    </form>
+    <form method="GET" action="/experiment/{{info.experiment}}/{{info.data_type}}/{{info.name}}/annotate">
+        <button type="submit" class="text-white p-4 rounded-lg bg-[#2d6a8b]">Annotate</button>
+    </form>
+    <form method="GET" action="/experiment/{{info.experiment}}/{{info.data_type}}/{{info.name}}/marker">
+        <button type="submit" class="text-white p-4 rounded-lg bg-[#3f9dcf]">Marker</button>
+    </form>
+{% endblock %}

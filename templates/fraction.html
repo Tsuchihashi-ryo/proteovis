@@ -1,44 +1,54 @@
 {% extends "template4input.html" %}
 
 
+
 {% block left_panel %}
     {{ super() }}
 {% endblock %}
 
 {% block middle_panel %}
-    {{page_fig | safe}}
+{{akta_fig | safe}}
+</br>
+<p>if y not equal UV 280nm, please hide fraction/phase annotation.(not work autoscale)</p>
 {% endblock %}
 
 {% block right_panel %}
-<h2 class="font-semibold mb-4">Set step name</h2>
-<div class="space-y-2 bg-white p-1 rounded-lg mb-1">
+<h2 class="font-semibold mb-4">Set step fraction</h2>
+<div class="space-y-2 bg-white p-1 rounded-lg mb-1" >
     <form method="POST" enctype="multipart/form-data">
+        <div style="overflow-y: scroll; height: 30rem;">
         <table>
             <thead>
                 <tr>
-                    <th>id</th>
+                    <th>Show</th>
                     <th>Color</th>
-                    <th>Lane Name</th>
-                    <th>Group</th>
-                    <th>Subgroup</th>
+                    <th>Fraction Name</th>
+                    <th>pooling</th>
                 </tr>
             </thead>
             <tbody>
-                {% for lane_data in lane_list %}
+                {% for fraction in fraction_list %}
                     <tr>
-                        <td><p>{{lane_data.index}}</p></td>
-                        <td><input id="color_{{lane_data.index}}" name="color" type="color" name="favorite_color" value="{{lane_data.color}}" class="color-picker"></td>  <!-- classを追加 -->
-                        <td><input id="lane_{{lane_data.index}}" name="lane_name" type="text" value="{{lane_data.name}}" class="border rounded px-2 py-1 w-full"></td>
-                        <td><input id="lane_{{lane_data.group}}" name="lane_group" type="text" value="{{lane_data.group}}" class="border rounded px-2 py-1 w-full"></td>
-                        <td><input id="lane_{{lane_data.subgroup}}" name="lane_subgroup" type="text" value="{{lane_data.subgroup}}" class="border rounded px-2 py-1 w-full"></td>
+                        {% if fraction.show %}
+                            <td><input id="show_{{fraction.index}}" name="show" type="checkbox" value="" class="border rounded px-2 py-1" checked></td>
+                        {% else %}
+                            <td><input id="show_{{fraction.index}}" name="show" type="checkbox" value="" class="border rounded px-2 py-1"></td>
+                        {% endif %}
+                        <td><input id="color_{{fraction.index}}" name="color" type="color" name="favorite_color" value="{{fraction.color}}" class="color-picker"></td>  <!-- classを追加 -->
+                        <td><input id="fraction_name_{{fraction.index}}" name="fraction_name" type="text" value="{{fraction.name}}" class="border rounded px-2 py-1 w-full"></td>
+                        <td><p id="pooling_{{fraction.index}}" name="pooling" type="text" value="{{fraction.pool}}" class="border rounded px-2 py-1 w-full">{{fraction.pool}}</p></td>
                     </tr>
                 {% endfor %}
             </tbody>
-        </table>
+        </table></div>
 
         <div class="mt-6 text-right flex justify-between">
+            <button type="button" onclick="checkAll()" class="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition duration-300 text-sm">checkAll</button>
+            <button type="button" onclick="uncheckAll()" class="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition duration-300 text-sm">uncheckAll</button>
             <button type="button" onclick="resetColors()" class="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition duration-300 text-sm">Reset Colors</button>
             <button type="button" onclick="applyRainbow()" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition duration-300 text-sm">Apply Rainbow</button>
+        </div>
+        <div class="mt-6 text-right flex justify-between">
             <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition duration-300">Save&Next</button>
         </div>
     </form>
@@ -48,6 +58,21 @@
 
 {% block script_code %}
 <script>
+    function checkAll() {
+            const checkboxes = document.querySelectorAll('input[name="show"]');
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = true;
+            });
+    }
+
+    function uncheckAll() {
+            const checkboxes = document.querySelectorAll('input[name="show"]');
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = false;
+            });
+    }
+
+
     function resetColors() {
         const colorPickers = document.querySelectorAll('.color-picker');
         colorPickers.forEach(input => {

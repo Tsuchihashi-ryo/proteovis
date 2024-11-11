@@ -3,6 +3,7 @@ from glob import glob
 import proteovis as pv
 import plotly.io as pio
 import pandas as pd
+import json
 
 
 def get_akta_data(path):
@@ -34,26 +35,24 @@ def get_page_image(path,lane_width=44,margin=0.2):
         return page_fig
 
 
-def sampling_data(dir):
-        name = os.path.basename(dir)
-
-        image_path = os.path.join(dir[1:],"icon.png").replace("\\","/")
-        file_type_binary = os.path.exists(os.path.join(dir,"all_data.csv"))
-        if file_type_binary:
-                file_type = "AKTA"
-        else:
-                file_type = "PAGE"
-
-        return {"image_path":image_path,"name":name,"file_type":file_type}
+def get_page_lane_ids(path,lane_width=44,margin=0.2):
+        page = pv.pypage.PageImage(path,lane_width=lane_width,margin=margin)
+        return list(range(len(page.lanes)))
 
 
-def get_samples(dir):
-    analysis_dirs = glob(os.path.join(dir,"*"))
+def sampling_data(datapath):
 
+        return {"experiment":datapath.experiment_name,
+               "icon":datapath.icon,
+                "name":datapath.name,
+                "data_type":datapath.data_type}
+
+
+def get_samples(exppath):
     sample_list = []
 
-    for dir in analysis_dirs:
-        sample_dic = sampling_data(dir)
+    for _,datapath in exppath.data.items():
+        sample_dic = sampling_data(datapath)
         sample_list.append(sample_dic)
 
     return sample_list
@@ -72,28 +71,15 @@ def get_akta_fig(dir,first="UV 1_280",second="Cond",third=None,forth=None):
 
     fig,use_color_palette = pv.graph.annotate_fraction(fig,frac_df,phase_df)
 
-    fig.update_layout(
-           width=900,
-           height=600
-    )
-    #fig.update_layout(width=None, autosize=True)
-
-    fig_html = pio.to_html(fig,full_html=False)
-
-    return fig_html
+    return fig2html(fig,name="akta")
 
 
 def get_page_fig(image_path,lane_width=50,margin=0.2):
-    fig = get_page_image(image_path,lane_width=lane_width,margin=margin)
+    fig = get_page_image(image_path,lane_width=int(lane_width),margin=float(margin))
 
-    fig.update_layout(
-           width=900,
-           height=600
-    )
+    return fig2html(fig,name="page")
 
-    fig_html = pio.to_html(fig,full_html=False)
 
-    return fig_html
 
 def get_phase_data(dir):
         phase_path = os.path.join(dir, f"phase.csv")
@@ -117,13 +103,194 @@ def get_phase_df(dir):
 
 
 def get_frac_data(dir):
-        frac_path = os.path.join(dir, f"fraction.csv")
-        frac_df = pd.read_csv(frac_path,index_col=0)
+        frac_df = get_frac_df(dir)
         fraction_list = frac_df["Fraction_Start"].to_list()
 
         return fraction_list
 
+def get_frac_df(dir):
+        frac_path = os.path.join(dir, f"fraction.csv")
+        frac_df = pd.read_csv(frac_path,index_col=0)
+        return frac_df
 
 
+
+def get_page_config(dir):
+    config_file = os.path.join(dir,"config.json").replace("\\","/")
+    config = json.load(open(config_file))
+
+    return config
+
+
+
+def marker_check(dir,image_path,lane_id):
+        
+        config = get_page_config(dir)
+        page = pv.pypage.PageImage(image_path,
+                                        lane_width=int(config["lane_width"]),
+                                        margin=float(config["margin"]))
+
+        marker = page.get_lane(index=lane_id,start=0).astype(float)
+        marker = pv.pypage.Marker(marker)
+
+        fig = marker.check()
+
+        fig.update_layout(
+        width=200,
+        height=500
+        )
+
+        fig_html = pio.to_html(fig,full_html=False)
+
+        return fig_html,marker.peak_index
+
+
+def make_page_df(dir,image_path):
+        config = get_page_config(dir)
+        page = pv.pypage.PageImage(image_path,
+                                        lane_width=int(config["lane_width"]),
+                                        margin=float(config["margin"]))
+        return page.get_df()
+
+
+
+class ExperimentPath:
+      def __init__(self,header,experiment):
+            self.experiment = os.path.join(header, experiment)
+            self.experiment_name = experiment
+            self.analysis = os.path.join(self.experiment, "analysis")
+            self.raw = os.path.join(self.experiment, "raw_data")
+            self.data = {}
+
+
+            data_folders = glob(f"{self.analysis}/*")
+
+            for folder in data_folders:
+                name = os.path.basename(folder)
+                file_type_binary = os.path.exists(os.path.join(folder,"all_data.csv"))
+                if file_type_binary:
+                        data_type = "AKTA"
+                else:
+                        data_type = "PAGE"
+                
+                self.data[name] = DataPath(self.experiment,self.experiment_name,name,data_type=data_type)
+
+
+
+class DataPath:
+        def __init__(self,experiment,experiment_name,name,data_type):
+                self.experiment = experiment
+                self.experiment_name = experiment_name
+                self.analysis = os.path.join(experiment, "analysis", name)
+                self.name = name
+                self.data_type = data_type
+
+                if data_type == "AKTA":
+                        self.file_type = "zip"
+                        self.fraction = os.path.join(self.analysis, "fraction.csv")
+                        self.all_data = os.path.join(self.analysis, "all_data.csv")
+                        self.phase = os.path.join(self.analysis, "phase.csv")
+                else:
+                        self.file_type = "PAGE"
+                        self.config = os.path.join(self.analysis, "config.json").replace("\\","/")
+                        self.annotation = os.path.join(self.analysis, "annotation.csv")
+                        
+                        config = json.load(open(self.config))
+                        ext = config['ext']
+                        self.raw = os.path.join(self.experiment, "raw_data",f"{name}{ext}")
+                self.icon = "/".join(os.path.join(self.analysis, "icon.png").replace("\\","/").split("/")[2:])
+
+
+def json_save(dict,path):
+       with open(path, 'wt') as f:
+        json.dump(dict, f, indent=2, ensure_ascii=False)
+
+
+def show_page_full(image_path,config,df=None):
+        df = df.fillna("")
+
+        lane_width = int(config["lane_width"])
+        margin = float(config["margin"])
+
+        page = pv.pypage.PageImage(image_path,lane_width=lane_width,margin=margin)
+
+        page.annotate_lanes(df["Name"].values.tolist())
+        page.palette = df["Color_code"].values.tolist()
+
+        palette = {}
+
+        
+
+        marker = page.get_lane(index=int(config["marker"]["id"]),start=0).astype(float)
+        marker = pv.pypage.Marker(marker)
+        marker.annotate(config["marker"]["annotate"])
+        
+
+        if df is df:
+               fig = page.annotated_imshow(palette,rectangle=True)
+        
+        else:
+               fig = page.check_image()
+
+        fig = pv.pypage.write_marker(fig,marker)
+
+
+
+        return fig2html(fig,name="page")
+
+
+def fig2html(fig,name="image"):
+        fig.update_layout(
+                width=900,
+                height=600
+        )
+
+        config = {
+                'toImageButtonOptions': {
+                'format': 'svg', # one of png, svg, jpeg, webp
+                'filename': name,
+                'width': 900,
+                'height': 600,
+                'scale': 1 # Multiply title/legend/axis/canvas sizes by this factor
+                }
+                }
+
+        fig_html = pio.to_html(fig,full_html=False,config=config)
+
+        return fig_html
+
+
+def get_page_fig4annotate(image_path,config,df):
+        lane_width = int(config["lane_width"])
+        margin = float(config["margin"])
+
+        page = pv.pypage.PageImage(image_path,lane_width=lane_width,margin=margin)
+
+        page.annotate_lanes(df["Name"].values.tolist())
+        page.palette = df["Color_code"].values.tolist()
+
+        palette = {}
+
+        fig = page.annotated_imshow(palette,rectangle=True)
+
+        return fig2html(fig,name="page")
+
+
+def fraction_pooling(df):
+       single_df = df[df["Pool"] == ""]
+       single_df["From"] = ""
+       single_df = single_df.drop("Pool",axis=1)
+
+       pool_df = df[df["Pool"] != ""]
+       pool_df['From'] = pool_df.groupby('Pool')['Name'].transform(lambda x: ';'.join(x))
+       pool_df = pool_df.drop_duplicates(subset=['Pool', 'From'])
+       pool_df = pool_df.drop("Name",axis=1)
+
+       pool_df = pool_df.rename(columns={"Pool":"Name"})
+
+       pooling_df = pd.concat([single_df,pool_df],axis=0,ignore_index=True)
+
+       pooling_df = pooling_df.fillna("")
        
+       return pooling_df
 

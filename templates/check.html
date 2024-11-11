@@ -1,14 +1,6 @@
-{% extends "template.html" %}
+{% extends "template4input.html" %}
 
 {% block left_panel %}
-    {% for sample in sample_list %}
-        <div id="get-{{sample.name}}" class="bg-blue-100 p-4 rounded-lg" style="cursor: pointer;">
-            <img src="{{sample.image_path}}" >
-            <p class="text-sm font-medium">File: {{sample.name}}</p>
-            <p class="text-sm">Type: {{sample.file_type}}</p>
-        </div>
-    {% endfor %}
-
     {{ super() }}
 {% endblock %}
 

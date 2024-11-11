@@ -3,10 +3,27 @@
 
 <head>
     <meta charset="shift-js">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1  minimum-scale=0.2">  <!-- 初期スケール -->
+    <script>
+    function adjustScale(containerWidth, minScale) {
+        const scale = Math.min(1.0, document.documentElement.clientWidth / containerWidth); // 1.0を超えないようにする
+        const newScale = Math.max(minScale, scale); //最小スケールを適用
+        document.querySelector('meta[name="viewport"]').content = `width=device-width, initial-scale=${newScale}`;
+    }
+    
+    window.addEventListener('DOMContentLoaded', () => {
+        adjustScale(1700, 0.2);
+    });
+    
+    window.addEventListener('resize', () => {
+        adjustScale(1700, 0.2);
+    });
+    </script>
     <title>Data Viewer Prototype</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link type="text/css" rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 
@@ -23,7 +40,7 @@
     <div class="max-w-full mx-auto bg-white rounded-lg shadow-lg p-3 max-h-fit">
         <div class="grid grid-cols-12 gap-6">
             <!-- Left Panel -->
-            <div class="col-span-2 space-y-4">
+            <div class="col-span-2 space-y-4" style="overflow-y: scroll;">
                 {% block left_panel %}
                 <button class="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition duration-300">Add files</button>
                 {% endblock %}
@@ -117,31 +134,7 @@
             }
         });
     </script>
-    <script>
-        var change_scale = {
-            "container": 1700,
-            "percent": 0.7,
-            "function": function() {
-                "use strict";
-                if (change_scale.percent === window.devicePixelRatio) {
-                    var scale = document.documentElement.clientWidth;
-                    scale = scale / change_scale.container;
-                    scale = "scale(" + scale + ")";
-                    document.body.style.transform = scale;
-                } else {
-                    change_scale.percent = window.devicePixelRatio;
-                }
-            }
-        };
-        (function() {
-            "use strict";
-            change_scale.function();
-        }());
-        window.addEventListener("resize", function(event) {
-            "use strict";
-            change_scale.function();
-        });
-    </script>
+
 
     {% block script_code %}
     {% endblock %}
