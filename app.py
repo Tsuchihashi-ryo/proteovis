@@ -185,13 +185,13 @@ def akta_pooling(experiment_name,run_name):
     exppath = ExperimentPath(header=app.config['UPLOAD_FOLDER'],
                              experiment=experiment_name)
     
-    analysis_dir = exppath.analysis
-    data_dir = exppath.data[run_name].analysis
+    datapath = exppath.data[run_name]
+    data_dir = datapath.analysis
     
 
     if request.method == 'GET':
         sample_list = get_samples(exppath)
-        fig_html = get_akta_fig(data_dir)
+        fig_html = get_akta_fig(data_dir, origin=True)
         phase_list = get_phase_data(data_dir)
         #right pannel 
         fraction_list = get_frac_data(data_dir)
@@ -207,63 +207,69 @@ def akta_pooling(experiment_name,run_name):
     else: #pattern of POST
         frac_path = os.path.join(data_dir, "fraction.csv")
         frac_df = pd.read_csv(frac_path,index_col=0)
-        frac_df["pool_name"] = frac_df["Fraction_Start"].copy()
+        frac_df["Pool"] = frac_df["Fraction_Start"].copy()
 
         pool_names = request.form.getlist("poolname",)
         region_list = request.form.getlist("fractionRegion")
+
+        pool_dict = {}
         
         for region, pool_name in zip(region_list,pool_names):
             names= region.split(" - ")
-            print(names)
             start_name = names[0]
             end_name = names[1]
-            start_index = frac_df[frac_df['Fraction_Start'] == start_name].index[0]
-            end_index = frac_df[frac_df['Fraction_Start'] == end_name].index[0]
+            pool_dict[pool_name]=(start_name,end_name)
 
-            frac_df.loc[start_index:end_index, 'pool_name'] = pool_name
-
-
-        print(pool_names, region_list)
-
-        frac_df.to_csv(os.path.join(data_dir, "fraction.csv"),na_rep="A")
+        json_save(pool_dict,datapath.pool)
 
 
-        return ",".join(pool_names+region_list)
+        return redirect(url_for(f"akta_fraction",experiment_name=experiment_name, run_name=run_name))
 
 
 @app.route(f"/experiment/<experiment_name>/AKTA/<run_name>/fraction", methods=['GET', 'POST'])
 def akta_fraction(experiment_name,run_name):
     exppath = ExperimentPath(header=app.config['UPLOAD_FOLDER'],
-                             experiment=experiment_name)
-    
-    analysis_dir = exppath.analysis
-    data_dir = exppath.data[run_name].analysis
+                             experiment=experiment_name) 
+    datapath = exppath.data[run_name]
+    data_dir = datapath.analysis
+
+    session["experiment_name"] = experiment_name
+    session["run_name"] = run_name
     
 
     if request.method == 'GET':
         sample_list = get_samples(exppath)
         fig_html = get_akta_fig(data_dir)
-        #right pannel 
         fraction_df = get_frac_df(data_dir)
 
-        if not "Name" in fraction_df.columns:
-            fraction_df["Name"] = fraction_df["Fraction_Start"]
 
-        
-        if not "Pool" in fraction_df.columns:
-            fraction_df["Pool"] = ""
-        
-        if not "Show" in fraction_df.columns:
-            fraction_df["Show"] = True
+        if os.path.exists(datapath.show):
+            show_df = get_frac_df(data_dir,"show")
 
-        pooling_df = fraction_pooling(fraction_df)
+
+        else:
+            show_df = get_frac_df(data_dir)
+            if os.path.exists(datapath.pool):
+                pool_dict = json.load(open(datapath.pool))
+
+                for name,(start,end) in pool_dict.items():
+                    show_df = pv.pycorn.utils.pooling_fraction(fraction_df,start=start,end=end,name=name)
+            
+            else:
+                show_df["Pool"] = ""
+
+            show_df["Name"] = show_df["Fraction_Start"]
+            show_df["Show"] = True
+        
+
+        show_df.to_csv(datapath.show)
 
 
         fraction_list = []
-        for i,row in pooling_df.iterrows():
+        for i,row in show_df.iterrows():
             fraction_list.append({"index":i,
                             "name":row["Name"],
-                            "pool":row["From"],
+                            "pool":row["Pool"],
                             "show":row["Show"],
                             "color":row["Color_code"]})
             
@@ -276,20 +282,35 @@ def akta_fraction(experiment_name,run_name):
     if request.method == 'POST':
         colors = request.form.getlist("color")
         names = request.form.getlist("fraction_name")
-        shows = request.form.getlist("show")
+        shows = [int(s) for s in request.form.getlist("show")]
 
-        fraction_df = get_frac_df(data_dir)
+        show_df = get_frac_df(data_dir,"show")
 
-        fraction_df["Color_code"] = colors
-        df["Name"] = names
-        df["Group"] = groups
-        df["SubGroups"] = subgroups
+        show_df["Color_code"] = colors
+        show_df["Name"] = names
+        show_df["Show"] = False
+        show_df.loc[shows,"Show"] = True
 
-        df = df.fillna("")
+        show_df = show_df.fillna("")
 
-        df.to_csv(datapath.annotation)
+        show_df.to_csv(datapath.show)
 
-     #add right pannel data
+    return redirect(url_for("show_akta", experiment_name=experiment_name,run_name=run_name))
+
+
+@app.route("/reload_pool",methods=["GET"])
+def reload_pool():
+    experiment_name = session["experiment_name"]
+    run_name = session["run_name"]
+
+    exppath = ExperimentPath(header=app.config['UPLOAD_FOLDER'],
+                             experiment=experiment_name) 
+    datapath = exppath.data[run_name]
+
+    os.remove(datapath.show)
+
+    return redirect(url_for(f"akta_fraction",experiment_name=experiment_name, run_name=run_name))
+
 
 
 @app.route(f"/experiment/<experiment_name>/PAGE/<run_name>/check", methods=["GET","POST"])
@@ -396,6 +417,7 @@ def page_annotate(experiment_name,run_name):
                           "color":row["Color_code"]})
         
     fig_html = get_page_fig4annotate(image_path,config,df)
+
 
     if request.method == 'POST':
         colors = request.form.getlist("color")

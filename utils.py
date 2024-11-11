@@ -58,18 +58,26 @@ def get_samples(exppath):
     return sample_list
 
 
-def get_akta_fig(dir,first="UV 1_280",second="Cond",third=None,forth=None):
+def get_akta_fig(dir,first="UV 1_280",origin=False):
     akta_path = os.path.join(dir, f"all_data.csv")
     frac_path = os.path.join(dir, f"fraction.csv")
+    show_path = os.path.join(dir, f"show.csv")
     phase_path = os.path.join(dir, f"phase.csv")
 
     akta_df = pd.read_csv(akta_path,index_col=0)
-    frac_df = pd.read_csv(frac_path,index_col=0)
+    if os.path.exists(show_path) & (not origin):
+           frac_df = pd.read_csv(show_path,index_col=0)
+           frac_df["Fraction_Start"] = frac_df["Name"]
+           annotations = frac_df[frac_df["Show"]]["Fraction_Start"].values.tolist()
+    else:
+           frac_df = pd.read_csv(frac_path,index_col=0)
+           annotations = frac_df["Fraction_Start"].values.tolist()
+
     phase_df = pd.read_csv(phase_path,index_col=0).fillna("")
 
     fig = pv.graph.unicorn_ploty_graph(akta_df,first=first)
 
-    fig,use_color_palette = pv.graph.annotate_fraction(fig,frac_df,phase_df)
+    fig,use_color_palette = pv.graph.annotate_fraction(fig,frac_df,phase_df,annotations=annotations)
 
     return fig2html(fig,name="akta")
 
@@ -108,9 +116,13 @@ def get_frac_data(dir):
 
         return fraction_list
 
-def get_frac_df(dir):
-        frac_path = os.path.join(dir, f"fraction.csv")
-        frac_df = pd.read_csv(frac_path,index_col=0)
+def get_frac_df(dir,data=None):
+        if not data:
+                frac_path = os.path.join(dir, f"fraction.csv")
+        elif data=="show":
+                frac_path = os.path.join(dir, f"show.csv")
+        else:NameError
+        frac_df = pd.read_csv(frac_path,index_col=0).fillna("")
         return frac_df
 
 
@@ -190,6 +202,8 @@ class DataPath:
                         self.fraction = os.path.join(self.analysis, "fraction.csv")
                         self.all_data = os.path.join(self.analysis, "all_data.csv")
                         self.phase = os.path.join(self.analysis, "phase.csv")
+                        self.pool = os.path.join(self.analysis, "pool.json").replace("\\","/")
+                        self.show = os.path.join(self.analysis, "show.csv")
                 else:
                         self.file_type = "PAGE"
                         self.config = os.path.join(self.analysis, "config.json").replace("\\","/")
@@ -277,20 +291,13 @@ def get_page_fig4annotate(image_path,config,df):
 
 
 def fraction_pooling(df):
-       single_df = df[df["Pool"] == ""]
-       single_df["From"] = ""
-       single_df = single_df.drop("Pool",axis=1)
+       pool_df = df.copy()
 
-       pool_df = df[df["Pool"] != ""]
        pool_df['From'] = pool_df.groupby('Pool')['Name'].transform(lambda x: ';'.join(x))
        pool_df = pool_df.drop_duplicates(subset=['Pool', 'From'])
        pool_df = pool_df.drop("Name",axis=1)
 
        pool_df = pool_df.rename(columns={"Pool":"Name"})
-
-       pooling_df = pd.concat([single_df,pool_df],axis=0,ignore_index=True)
-
-       pooling_df = pooling_df.fillna("")
        
-       return pooling_df
+       return pool_df
 
