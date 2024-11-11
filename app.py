@@ -203,6 +203,33 @@ def akta_pooling(experiment_name,run_name):
                                fraction_list=fraction_list) #add right pannel data
         #return render_template('pool.html')
 
+  
+    else: #pattern of POST
+        frac_path = os.path.join(data_dir, "fraction.csv")
+        frac_df = pd.read_csv(frac_path,index_col=0)
+        frac_df["pool_name"] = frac_df["Fraction_Start"].copy()
+
+        pool_names = request.form.getlist("poolname",)
+        region_list = request.form.getlist("fractionRegion")
+        
+        for region, pool_name in zip(region_list,pool_names):
+            names= region.split(" - ")
+            print(names)
+            start_name = names[0]
+            end_name = names[1]
+            start_index = frac_df[frac_df['Fraction_Start'] == start_name].index[0]
+            end_index = frac_df[frac_df['Fraction_Start'] == end_name].index[0]
+
+            frac_df.loc[start_index:end_index, 'pool_name'] = pool_name
+
+
+        print(pool_names, region_list)
+
+        frac_df.to_csv(os.path.join(data_dir, "fraction.csv"),na_rep="A")
+
+
+        return ",".join(pool_names+region_list)
+
 
 @app.route(f"/experiment/<experiment_name>/AKTA/<run_name>/fraction", methods=['GET', 'POST'])
 def akta_fraction(experiment_name,run_name):
@@ -221,6 +248,7 @@ def akta_fraction(experiment_name,run_name):
 
         if not "Name" in fraction_df.columns:
             fraction_df["Name"] = fraction_df["Fraction_Start"]
+
         
         if not "Pool" in fraction_df.columns:
             fraction_df["Pool"] = ""
