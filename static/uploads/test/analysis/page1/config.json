@@ -1,7 +1,7 @@
 {
   "ext": ".jpg",
-  "lane_width": "47",
-  "margin": "0.25",
+  "lane_width": "44",
+  "margin": "0.3",
   "marker": {
     "id": "1",
     "annotate": [
