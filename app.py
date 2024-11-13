@@ -9,6 +9,7 @@ import seaborn as sns
 from utils import *
 import json
 import pandas as pd
+from pathlib import Path
 
 pio.orca.config.executable = 'C:/Users/jb60386/AppData/Local/Programs/orca/orca.exe'
 app = Flask(__name__,static_folder='./static', static_url_path='/static')
@@ -183,7 +184,7 @@ def akta(experiment_name,run_name):
 @app.route(f"/experiment/<experiment_name>/AKTA/<run_name>/pooling", methods=['GET', 'POST'])
 def akta_pooling(experiment_name,run_name):
     exppath = ExperimentPath(header=app.config['UPLOAD_FOLDER'],
-                             experiment=experiment_name)
+                                experiment=experiment_name)
     
     datapath = exppath.data[run_name]
     data_dir = datapath.analysis
@@ -197,13 +198,13 @@ def akta_pooling(experiment_name,run_name):
         fraction_list = get_frac_data(data_dir)
 
         return render_template('pool.html',
-                               sample_list=sample_list,
-                               akta_fig=fig_html, 
-                               phase_list=phase_list,
-                               fraction_list=fraction_list) #add right pannel data
+                                sample_list=sample_list,
+                                akta_fig=fig_html, 
+                                phase_list=phase_list,
+                                fraction_list=fraction_list) #add right pannel data
         #return render_template('pool.html')
 
-  
+
     else: #pattern of POST
         frac_path = os.path.join(data_dir, "fraction.csv")
         frac_df = pd.read_csv(frac_path,index_col=0)
@@ -216,12 +217,9 @@ def akta_pooling(experiment_name,run_name):
         
         for region, pool_name in zip(region_list,pool_names):
             names= region.split(" - ")
-            start_name = names[0]
-            end_name = names[1]
-            pool_dict[pool_name]=(start_name,end_name)
+            pool_dict[pool_name]=(names[0],names[1])
 
         json_save(pool_dict,datapath.pool)
-
 
         return redirect(url_for(f"akta_fraction",experiment_name=experiment_name, run_name=run_name))
 
@@ -229,7 +227,7 @@ def akta_pooling(experiment_name,run_name):
 @app.route(f"/experiment/<experiment_name>/AKTA/<run_name>/fraction", methods=['GET', 'POST'])
 def akta_fraction(experiment_name,run_name):
     exppath = ExperimentPath(header=app.config['UPLOAD_FOLDER'],
-                             experiment=experiment_name) 
+                            experiment=experiment_name) 
     datapath = exppath.data[run_name]
     data_dir = datapath.analysis
 
@@ -274,9 +272,9 @@ def akta_fraction(experiment_name,run_name):
                             "color":row["Color_code"]})
             
         return render_template('fraction.html',
-                               sample_list=sample_list,
-                               akta_fig=fig_html, 
-                               fraction_list=fraction_list)
+                                sample_list=sample_list,
+                                akta_fig=fig_html, 
+                                fraction_list=fraction_list)
         
 
     if request.method == 'POST':
@@ -304,7 +302,7 @@ def reload_pool():
     run_name = session["run_name"]
 
     exppath = ExperimentPath(header=app.config['UPLOAD_FOLDER'],
-                             experiment=experiment_name) 
+                            experiment=experiment_name) 
     datapath = exppath.data[run_name]
 
     os.remove(datapath.show)
@@ -316,7 +314,7 @@ def reload_pool():
 @app.route(f"/experiment/<experiment_name>/PAGE/<run_name>/check", methods=["GET","POST"])
 def page_check(experiment_name,run_name):
     exppath = ExperimentPath(header=app.config['UPLOAD_FOLDER'],
-                             experiment=experiment_name)
+                            experiment=experiment_name)
     
     analysis_dir = exppath.analysis
     data_dir = exppath.data[run_name].analysis
@@ -386,18 +384,49 @@ def save_page():
 @app.route(f"/experiment/<experiment_name>/PAGE/<run_name>/annotate", methods=["GET","POST"])
 def page_annotate(experiment_name,run_name):
     exppath = ExperimentPath(header=app.config['UPLOAD_FOLDER'],
-                             experiment=experiment_name)
+                            experiment=experiment_name)
     
     analysis_dir = exppath.analysis
     datapath = exppath.data[run_name]
-
-    image_path = exppath.data[run_name].raw
-    config_file = exppath.data[run_name].config
-
+    image_path = datapath.raw
+    config_file = datapath.config
     sample_list = get_samples(exppath)
-    
     config = json.load(open(config_file))
+
+    def find_data(parent_directory, target_data):
+        dir_path = Path(parent_directory)
+        for file_path in dir_path.rglob(target_data):
+            return True, str(file_path)
+        return False, ""
+
+    bool_pool = find_data(analysis_dir, "pool.json")
+    bool_fraction = find_data(analysis_dir, "fraction.csv")
+    print (bool_pool, bool_fraction)
+
+    if bool_fraction[0]:
+        fraction_df = get_frac_df(bool_fraction[1].replace("fraction.csv",""))
+        fraction_df["pool_name"] = fraction_df["Fraction_Start"].copy()
+        if bool_pool[0]:
+            with open(bool_pool[1], 'r') as f:
+                pool_dict = json.load(f)
+            
+            for name, values in zip(list(pool_dict.keys()), pool_dict.values()):
+
+                start_index = fraction_df[fraction_df['Fraction_Start'] == values[0]].index[0]
+                end_index = fraction_df[fraction_df['Fraction_Start'] == values[1]].index[0]
+
+                # 'start'から'end'までの範囲に'test'を入力
+                fraction_df.loc[start_index:end_index, 'pool_name'] = name
+
+            suggest_list = list(set(fraction_df["pool_name"].to_list()))
+        else:
+            suggest_list = list(set(fraction_df["Fraction_Start"].to_list()))
     
+    else:
+        suggest_list = [str(n) for n in range(1,16)]
+
+
+
 
     if os.path.exists(datapath.annotation):
         df = pd.read_csv(datapath.annotation)
@@ -411,10 +440,10 @@ def page_annotate(experiment_name,run_name):
     lane_list = []
     for i,row in df.iterrows():
         lane_list.append({"index":row["Lane"],
-                          "name":row["Name"],
-                          "group":row["Group"],
-                          "subgroup":row["SubGroup"],
-                          "color":row["Color_code"]})
+                        "name":row["Name"],
+                        "group":row["Group"],
+                        "subgroup":row["SubGroup"],
+                        "color":row["Color_code"]})
         
     fig_html = get_page_fig4annotate(image_path,config,df)
 
@@ -442,7 +471,7 @@ def page_annotate(experiment_name,run_name):
         return redirect(url_for("page_marker",experiment_name=experiment_name,run_name=run_name))
 
     elif request.method == 'GET':
-        return render_template('annotate.html',sample_list=sample_list,page_fig=fig_html,lane_list=lane_list)
+        return render_template('annotate.html',sample_list=sample_list,page_fig=fig_html,lane_list=lane_list, suggest_list=suggest_list)
 
 
 @app.route(f"/experiment/<experiment_name>/PAGE/<run_name>/marker", methods=["GET","POST"])
