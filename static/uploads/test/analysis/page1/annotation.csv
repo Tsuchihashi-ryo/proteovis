@@ -1,8 +1,8 @@
 ,Lane,Name,Group,SubGroup,Color_code,SubGroups
-0,0,1.B.1,,,#ff0000,
-1,1,test dfaae,,,#ff6200,
-2,2,hapto collect,,,#ffbf00,
-3,3,flowthrough,,,#ddff00,
+0,0,marker,,,#ff0000,
+1,1,1.C.12,,,#ff6200,
+2,2,teasg,,,#ffbf00,
+3,3,AAA,,,#ddff00,
 4,4,wash,,,#80ff00,
 5,5,wash,,,#1eff00,
 6,6,peak1,,,#00ff40,

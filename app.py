@@ -388,8 +388,8 @@ def page_annotate(experiment_name,run_name):
     
     analysis_dir = exppath.analysis
     datapath = exppath.data[run_name]
-    image_path = exppath.data[run_name].raw
-    config_file = exppath.data[run_name].config
+    image_path = datapath.raw
+    config_file = datapath.config
     sample_list = get_samples(exppath)
     config = json.load(open(config_file))
 
