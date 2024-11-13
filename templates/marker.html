@@ -23,9 +23,8 @@
         <span id="close-button">X</span>
       </div>
 
-    
 
-    
+
         <div class="grid grid-cols-subgrid gap-4 col-span-2">
             <div class="col-start-1 space-y-4">
                 <form method="POST">
@@ -50,13 +49,15 @@
                     <input id="peak_{{peak.id}}" name="peak" type="text" value="{{peak.kDa}}" class="border rounded px-1 py-1 w-full">
                     <label for="peak_{{peak.id}}">{{peak.id}}</label>
                 </div>
+
         
             
             {% endfor %}
+            <button type="submit" class="w-full bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 transition duration-300 ease-in-out">Next</button>
+    </form>
             </div>
         </div>
-                <button type="submit" class="w-full bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 transition duration-300 ease-in-out">Next</button>
-    </form>
+                
 </div>
 {% endblock %}
 

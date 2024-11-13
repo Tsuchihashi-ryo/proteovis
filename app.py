@@ -559,6 +559,7 @@ def save_marker():
     config["marker"]["annotate"] = request.form.getlist("peak")
 
     json_save(config,datapath.config)
+    print("gin")
 
 
     return redirect(url_for(f"show_page",experiment_name=experiment_name,run_name=run_name))
@@ -576,9 +577,17 @@ def show_page(experiment_name,run_name):
 
     config = json.load(open(datapath.config))
 
-    df = pd.read_csv(datapath.annotation,index_col=0)
+    if os.path.exists(datapath.annotation):
 
-    fig_html = show_page_full(datapath.raw,config,df)
+        df = pd.read_csv(datapath.annotation,index_col=0)
+
+        fig_html = show_page_full(datapath.raw,config,df)
+
+    elif config.get("lane_width"):
+        fig_html = get_page_fig(datapath.raw,lane_width=int(config["lane_width"]),margin=float(config["margin"]))
+    
+    else:
+        fig_html = get_page_fig(datapath.raw,lane_width=44,margin=0.2)
 
     info = sampling_data(datapath)
 
@@ -591,4 +600,4 @@ def show_page(experiment_name,run_name):
 
 
 if __name__ == '__main__':
-    app.run(port=8000,debug=True)
+    app.run(port=8000,host="0.0.0.0",debug=True)
