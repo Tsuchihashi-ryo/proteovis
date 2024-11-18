@@ -1,4 +1,5 @@
 from flask import Flask, render_template, request, redirect, url_for, session
+from flask_sqlalchemy import SQLAlchemy
 import os
 from datetime import datetime
 from glob import glob
@@ -13,12 +14,48 @@ from pathlib import Path
 
 pio.orca.config.executable = 'C:/Users/jb60386/AppData/Local/Programs/orca/orca.exe'
 app = Flask(__name__,static_folder='./static', static_url_path='/static')
+
 app.secret_key = b'fewgagaehrae'
 app.jinja_env.auto_reload = True
 
 UPLOAD_FOLDER = './static/uploads'
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
+
+basedir = os.path.abspath(os.path.dirname(__file__))
+
+app.config['SQLALCHEMY_DATABASE_URI'] ='sqlite:///' + os.path.join(basedir, 'database.db')
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+db = SQLAlchemy(app)
+
+class User(db.Model):
+    __tablename__ = "user"
+    id = db.Column(db.Integer, primary_key=True) # primary keys are required by SQLAlchemy
+    email = db.Column(db.String(100), unique=True)
+    password = db.Column(db.String(100))
+    name = db.Column(db.String(1000))
+
+class Experiment(db.Model):
+    __tablename__ = "experiment"
+    id = db.Column(db.Integer, primary_key=True)
+    experiment = db.Column(db.String(128), nullable=False)
+    name = db.Column(db.String(128), nullable=False)
+    project_code = db.Column(db.String(128), nullable=True)
+    created_at  = db.Column(db.DateTime, default=datetime.now, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now, nullable=False)
+
+class Run(db.Model):
+    __tablename__ = "run"
+    id = db.Column(db.Integer, primary_key=True)
+    experiment = db.Column(db.String(128), nullable=False)
+    name = db.Column(db.String(128), nullable=False)
+    project_code = db.Column(db.String(128), nullable=True)
+    created_at  = db.Column(db.DateTime, default=datetime.now, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now, nullable=False)
 
 
 @app.route('/', methods=['GET'])
@@ -32,6 +69,13 @@ def new_experiment():
         experiment_name = request.form.get('experiment-name')
         user_name = request.form.get('user-name')
         project_code = request.form.get('project-code')
+
+        new_experiment=Experiment(experiment=experiment_name,
+                                  name=user_name,
+                                  project_code=project_code)
+
+        db.session.add(new_experiment)
+        db.session.commit()
 
         #today_str = datetime.now().strftime('%Y%m%d')
         exp_dir = os.path.join(app.config['UPLOAD_FOLDER'], f"{experiment_name}")

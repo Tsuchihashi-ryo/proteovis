@@ -9,3 +9,4 @@ seaborn
 flask
 psutil
 requests
+Flask-SQLAlchemy
