@@ -1,0 +1,18 @@
+{
+	"folders": [
+		{
+			"path": "../.."
+		}
+	],
+	"settings": {
+		"python.analysis.autoImportCompletions": true,
+		"python.analysis.diagnosticMode": "workspace",
+		"python.analysis.fixAll": [
+
+		],
+		"python.analysis.extraPaths": [
+			"C:\\Users\\jb60386\\Desktop\\testenv\\akta-db-venv\\AKTA-DB"
+		]
+	},
+	"python.analysis.extraPaths": ["C:/Users/jb60386/Desktop/testenv/akta-db-venv/AKTA-DB"],
+}
