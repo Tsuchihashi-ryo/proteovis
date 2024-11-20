@@ -204,6 +204,7 @@ class DataPath:
                         self.phase = os.path.join(self.analysis, "phase.csv")
                         self.pool = os.path.join(self.analysis, "pool.json").replace("\\","/")
                         self.show = os.path.join(self.analysis, "show.csv")
+                        self.config = os.path.join(self.analysis, "config.json").replace("\\","/")
                 else:
                         self.file_type = "PAGE"
                         self.config = os.path.join(self.analysis, "config.json").replace("\\","/")

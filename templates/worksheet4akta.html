@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <link href="style.css" rel="stylesheet" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AKTA ワークシートクリエーター</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <form method="post">
+    <div class="p-4 max-w-4xl mx-auto">
+        <h1 class="text-2xl font-bold mb-4">AKTA ワークシートクリエーター</h1>
+        
+        <div class="grid grid-cols-1 gap-4 mb-4">
+            <div>
+                <h2 class="text-lg font-semibold mb-2">カラム</h2>
+                <div class="space-y-2">
+                    <label class="block">
+                        名前
+                        <input type="text" id="column-name" name="column-name" placeholder="名前" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500" />
+                    </label>
+                    <label class="block">
+                        CV (mL)
+                        <input type="number" id="column-cv" name="column-cv" placeholder="CV (mL)" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500" />
+                    </label>
+                </div>
+            </div>
+            <div>
+                <h2 class="text-lg font-semibold mb-2">サンプルループ</h2>
+                <div class="space-y-2">
+                    <label class="block">
+                        名前
+                        <input type="text" id="sample-loop-name" name="sample-loop-name" placeholder="名前" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500" />
+                    </label>
+                    <label class="block">
+                        容量 (mL)
+                        <input type="number" id="sample-loop-volume" name="sample-loop-volume" placeholder="容量 (mL)" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500" />
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <div class="mb-4">
+            <h2 class="text-lg font-semibold mb-2">バッファー</h2>
+            <div class="grid grid-cols-1 md:grid-cols-1 gap-6">
+                <div class="space-y-4">
+                    <div class="space-y-2">
+                        <div class="flex items-end space-x-2">
+                            <label class="block flex-grow">
+                                A1
+                                <div class="relative">
+                                    <input type="text" id="buffer-a1" name="buffer-a1" placeholder="A1" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500" />
+                                    <ul id="suggestions-a1" class="absolute z-10 w-full bg-white border border-gray-300 rounded-md mt-1 hidden"></ul>
+                                </div>
+                            </label>
+                            <input type="number" id="number-a1" name="number-a1" placeholder="mM" class="mt-1 block w-20 px-3 py-2 bg-white border border-gray-300 rounded-md text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500" />
+                            <button type="button" id="add-tag-a1" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                                追加
+                            </button>
+                            <p>pH</p>
+                            <input type="number" id="a1-ph" name="a1-ph" placeholder="pH" class="mt-1 block w-20 px-3 py-2 bg-white border border-gray-300 rounded-md text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500" />
+                        </div>
+                        <div id="tag-container-a1" class="flex flex-wrap gap-2"></div>
+                        
+                    </div>
+                    <div class="space-y-2">
+                        <div class="flex items-end space-x-2">
+                            <label class="block flex-grow">
+                                A2
+                                <div class="relative">
+                                    <input type="text" id="buffer-a2" name="buffer-a2" placeholder="A2" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500" />
+                                    <ul id="suggestions-a2" class="absolute z-10 w-full bg-white border border-gray-300 rounded-md mt-1 hidden"></ul>
+                                </div>
+                            </label>
+                            <input type="number" id="number-a2" name="number-a2" placeholder="mM" class="mt-1 block w-20 px-3 py-2 bg-white border border-gray-300 rounded-md text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500" />
+                            <button type="button" id="add-tag-a2" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                                追加
+                            </button>
+                            <p>pH</p>
+                            <input type="number" id="a2-ph" name="a2-ph" placeholder="pH" class="mt-1 block w-20 px-3 py-2 bg-white border border-gray-300 rounded-md text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500" />
+                        </div>
+                        <div id="tag-container-a2" class="flex flex-wrap gap-2"></div>
+                    </div>
+                </div>
+                <div class="space-y-4">
+                    <div class="space-y-1">
+                        <div class="flex items-end space-x-2">
+                            <label class="block flex-grow">
+                                B1
+                                <div class="relative">
+                                    <input type="text" id="buffer-b1" name="buffer-b1" placeholder="B1" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500" />
+                                    <ul id="suggestions-b1" class="absolute z-10 w-full bg-white border border-gray-300 rounded-md mt-1 hidden"></ul>
+                                </div>
+                            </label>
+                            <input type="number" id="number-b1" name="number-b1" placeholder="mM" class="mt-1 block w-20 px-3 py-2 bg-white border border-gray-300 rounded-md text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500" />
+                            <button type="button" id="add-tag-b1" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                                追加
+                            </button>
+                            <p>pH</p>
+                            <input type="number" id="b1-ph" name="b1-ph" placeholder="pH" class="mt-1 block w-20 px-3 py-2 bg-white border border-gray-300 rounded-md text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500" />
+                        </div>
+                        <div id="tag-container-b1" class="flex flex-wrap gap-2"></div>
+                    </div>
+                    <div class="space-y-2">
+                        <div class="flex items-end space-x-2">
+                            <label class="block flex-grow">
+                                B2
+                                <div class="relative">
+                                    <input type="text" id="buffer-b2" name="buffer-b2" placeholder="B2" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500" />
+                                    <ul id="suggestions-b2" class="absolute z-10 w-full bg-white border border-gray-300 rounded-md mt-1 hidden"></ul>
+                                </div>
+                            </label>
+                            <input type="number" id="number-b2" name="number-b2" placeholder="mM" class="mt-1 block w-20 px-3 py-2 bg-white border border-gray-300 rounded-md text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500" />
+                            <button type="button" id="add-tag-b2" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                                追加
+                            </button>
+                            <p>pH</p>
+                            <input type="number" id="b2-ph" name="b2-ph" placeholder="pH" class="mt-1 block w-20 px-3 py-2 bg-white border border-gray-300 rounded-md text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500" />
+                        </div>
+                        <div id="tag-container-b2" class="flex flex-wrap gap-2"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mb-4">
+            <h2 class="text-lg font-semibold mb-2">サンプルポンプ</h2>
+            <div class="space-y-2">
+                <label class="block">
+                    S1
+                    <input type="text" id="sample-pump-s1" name="sample-pump-s1" placeholder="S1" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500" />
+                </label>
+                <label class="block">
+                    バッファー
+                    <input type="text" id="sample-pump-buffer" name="sample-pump-buffer" placeholder="バッファー" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500" />
+                </label>
+            </div>
+        </div>
+
+        <h2 class="text-lg font-semibold mb-2">プログラム</h2>
+        <table id="program-table" class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">流速</br>(mL/min)</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">長さ</br>(CV)</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">%B</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">slope type</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">path</th>
+                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">分画量</br>(mL)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- プログラムの行がここに動的に追加されます -->
+            </tbody>
+        </table>
+
+        <div class="mt-4 space-x-2">
+            <button id="add-row" class="px-4 py-2 font-semibold text-sm bg-cyan-500 text-white rounded-full shadow-sm">+ 行を追加</button>
+            <button id="delete-row" class="px-4 py-2 font-semibold text-sm bg-red-500 text-white rounded-full shadow-sm">最後の行を削除</button>
+        </div>
+
+        <div id="total-time" class="mt-4"></div> <div id="total-time" class="mt-4"></div>
+
+        <h2 class="text-lg font-semibold mt-8 mb-2">Chromatogram</h2>
+        <div class="h-128 w-full">
+            <canvas id="gradient-chart"></canvas>
+        </div>
+        <button id="create-worksheet" class="px-4 py-2 font-semibold text-sm bg-cyan-500 text-white rounded-full shadow-sm">Create</button>
+    </form>
+        <div id="worksheet"></div>
+        <div id="worksheet-container"></div>
+
+    </div>
+    <script src="{{ url_for('static', filename='autocomplete.js') }}"></script>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>

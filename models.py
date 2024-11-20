@@ -22,11 +22,10 @@ class User(UserMixin,db.Model):
 
 class Experiment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False)
+    name = db.Column(db.String(100), nullable=False,unique=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     project_code = db.Column(db.String(50))
-    create_at = db.Column(db.DateTime)
-    update_at = db.Column(db.DateTime)
+    create_at = db.Column(db.DateTime(timezone=True),default=db.func.now())
     runs = db.relationship('Run', backref='experiment', lazy=True)
 
 
@@ -35,8 +34,7 @@ class Run(db.Model):
     experiment_id = db.Column(db.Integer, db.ForeignKey('experiment.id'), nullable=False)
     name = db.Column(db.String(100))
     type = db.Column(db.String(50))
-    create_at = db.Column(db.DateTime)
-    update_at = db.Column(db.DateTime)
+    create_at = db.Column(db.DateTime,default=db.func.now())
     inputs = db.relationship('Input', backref='run', lazy=True)
     buffers = db.relationship('Buffer', backref='run', lazy=True)
     fractions = db.relationship('Fraction', backref='run', lazy=True)
@@ -46,7 +44,7 @@ class Run(db.Model):
 class Sample(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
-    create_at = db.Column(db.DateTime)
+    create_at = db.Column(db.DateTime,default=db.func.now())
 
 
 class Reagent(db.Model):
@@ -75,6 +73,7 @@ class Fraction(db.Model):
     run_id = db.Column(db.Integer, db.ForeignKey('run.id'), nullable=False)
     fraction_id = db.Column(db.Integer)  # Consider renaming for clarity
     name = db.Column(db.String(100))
+    create_at = db.Column(db.DateTime,default=db.func.now())
     links = db.relationship('Link', backref='fraction', lazy=True)
 
 
