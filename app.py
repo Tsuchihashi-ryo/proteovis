@@ -60,13 +60,18 @@ def new_experiment():
         db.session.commit()
 
         #today_str = datetime.now().strftime('%Y%m%d')
-        exp_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], f"{experiment_name}")
-        raw_dir = os.path.join(exp_dir, "raw_data")
-        analysis_dir = os.path.join(exp_dir, "analysis")
+        exppath = ExperimentPath(header=current_app.config['UPLOAD_FOLDER'],
+                             experiment=experiment_name)
+    
+        analysis_dir = exppath.analysis
+        raw_dir = exppath.raw
+        analysis_dir = exppath.analysis
+        worksheet_dir = exppath.worksheet
 
         try:
             os.makedirs(raw_dir, exist_ok=False) # exist_ok=Falseでエラーを発生させる
             os.makedirs(analysis_dir, exist_ok=False)
+            os.makedirs(worksheet_dir, exist_ok=False)
         except FileExistsError:
             return render_template('new_experiment.html', error="Error: A folder with that name already exists for today. Please choose a different experiment name.")
 
@@ -142,8 +147,78 @@ def new_experiment():
     return render_template('new_experiment.html', error=None,user_name=current_user.name) #エラーメッセージをクリア
 
 
+
+@main.route("/experiment/<experiment_name>/upload", methods=["POST"])
+def upload(experiment_name):
+    exppath = ExperimentPath(header=current_app.config['UPLOAD_FOLDER'],
+                        experiment=experiment_name)
+    experiment_id = Experiment.query.filter_by(name=experiment_name).first().id
+
+
+    raw_dir = exppath.raw
+    analysis_dir = exppath.analysis
+    worksheet_dir = exppath.worksheet
+
+    file = request.files.get('file')
+
+    print(file.filename)
+    if file.filename:
+        filename = os.path.join(raw_dir, file.filename)
+        file.save(filename)
+        print(f"Uploaded file: {filename}")
+
+
+    rawfile = filename
+
+
+    for path in [rawfile]:
+        name = os.path.basename(path).split(".")[0]
+        data_dir = os.path.join(analysis_dir,name)
+        
+        try:
+            os.makedirs(data_dir,exist_ok=False)
+        except FileExistsError:
+            return render_template('index.html', error="Error: A folder with that name already exists for today. Please choose a different file.")
+
+        if path[-3:] == "zip":
+            akta_df,frac_df,phase_df,akta_fig = get_akta_data(path)
+            akta_df.to_csv(os.path.join(data_dir,"all_data.csv"))
+            frac_df.to_csv(os.path.join(data_dir,"fraction.csv"))
+            phase_df.to_csv(os.path.join(data_dir,"phase.csv"))
+            test = akta_fig.to_html(full_html=False)
+            #return render_template('chromatography.html',chromatogram=test)
+            akta_fig.write_image(os.path.join(data_dir,"icon.png"),engine="orca")
+
+            run = Run(experiment_id=experiment_id,
+                        name=name,
+                        type="AKTA")
+            
+            db.session.add(run)
+            db.session.commit()
+
+            config = {"run_id":run.id}
+            json_save(config,os.path.join(data_dir,"config.json"))
+
+
+        elif path[-3:] in ["png","jpg","iff","tif"]:
+            page_fig = get_page_image(path)
+            ext = os.path.splitext(path)[-1]
+            page_fig.write_image(os.path.join(data_dir,"icon.png"),engine="orca")
+            run = Run(experiment_id=experiment_id,
+                        name=name,
+                        type="PAGE")
+            
+            db.session.add(run)
+            db.session.commit()
+            
+            config = {"ext":ext,"run_id":run.id}
+            json_save(config,os.path.join(data_dir,"config.json"))
+
+
+    return redirect(url_for(f"main.experiment",experiment_name=experiment_name))#select(experiment_name)
+
+
 @main.route('/open_experiment', methods=['GET'])
-@login_required
 def open_experiment():
     #experiments = glob(os.path.join(current_app.config['UPLOAD_FOLDER'],"*"))
     experiments = Experiment.query.all()
@@ -170,8 +245,10 @@ def delete_experiment(experiment_name):
 
     return redirect(url_for("main.open_experiment"))
 
-@main.route("/worksheet4akta", methods=["GET", "POST"])
-def worksheet4akta():
+
+
+@main.route("/experiment/<experiment_name>/worksheet4akta/<worksheet_name>", methods=["GET", "POST"])
+def worksheet4akta(experiment_name,worksheet_name):
     if request.method == "GET":
         return render_template("worksheet4akta.html") # index.htmlをレンダリング
     elif request.method == "POST":
@@ -231,7 +308,7 @@ def experiment(experiment_name):
     sample_list = get_samples(exppath)
 
 
-    return render_template('template4input.html',sample_list=sample_list)
+    return render_template('template4input.html',experiment_name=experiment_name,sample_list=sample_list)
 
 
 @main.route(f"/experiment/<experiment_name>/AKTA/<run_name>/show", methods=["GET"])
@@ -252,6 +329,7 @@ def show_akta(experiment_name,run_name):
 
 
     return render_template('show_akta.html',
+                           experiment_name=experiment_name,
                            sample_list=sample_list,
                            akta_fig=fig_html,
                            info=info)
@@ -592,7 +670,7 @@ def page_annotate(experiment_name,run_name):
         return redirect(url_for("main.page_marker",experiment_name=experiment_name,run_name=run_name))
 
     elif request.method == 'GET':
-        return render_template('annotate.html',sample_list=sample_list,page_fig=fig_html,lane_list=lane_list, suggest_list=suggest_list)
+        return render_template('annotate.html',experiment_name=experiment_name,sample_list=sample_list,page_fig=fig_html,lane_list=lane_list, suggest_list=suggest_list)
 
 
 @main.route(f"/experiment/<experiment_name>/PAGE/<run_name>/marker", methods=["GET","POST"])
@@ -656,6 +734,7 @@ def page_marker(experiment_name,run_name):
 
 
     return render_template('marker.html',
+                           experiment_name=experiment_name,
                            sample_list=sample_list,
                            page_fig=fig_html,
                            marker_fig=marker_html,
@@ -714,6 +793,7 @@ def show_page(experiment_name,run_name):
 
 
     return render_template(f"show_page.html",
+                           experiment_name=experiment_name,
                            sample_list=sample_list,
                            page_fig=fig_html,
                            info=info)

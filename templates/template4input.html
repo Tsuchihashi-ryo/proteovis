@@ -14,11 +14,16 @@
     </form>
     {% endfor %}
 
-    {{ super() }}
+    <form method="POST" action="/experiment/{{experiment_name}}/upload" enctype="multipart/form-data">
+        <input type="file" if="file" name="file" class="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition duration-300">
+        <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition duration-300">Add files</button>
+    </form>
 {% endblock %}
+
 
 {% block middle_panel %}
 {% endblock %}
+
 
 {% block right_panel %}
 {% endblock %}

@@ -39,6 +39,7 @@ class Run(db.Model):
     buffers = db.relationship('Buffer', backref='run', lazy=True)
     fractions = db.relationship('Fraction', backref='run', lazy=True)
     pages = db.relationship('Page', backref='run', lazy=True)
+    worksheetlink = db.relationship('Worksheetlink', backref='run', lazy=True)
 
 
 class Sample(db.Model):
@@ -96,3 +97,18 @@ class Peak(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     page_id = db.Column(db.Integer, db.ForeignKey('page.id'), nullable=False)
     peak = db.Column(db.Float)  # Consider renaming to something more descriptive
+
+
+class Worksheet(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    experiment_id = db.Column(db.Integer, db.ForeignKey('experiment.id'), nullable=False)
+    name = db.Column(db.String(100))
+    type = db.Column(db.String(50))
+    create_at = db.Column(db.DateTime,default=db.func.now())
+    worksheetlink = db.relationship('Worksheetlink', backref='worksheet', lazy=True)
+
+
+class Worksheetlink(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    worksheet_id = db.Column(db.Integer, db.ForeignKey('worksheet.id'), nullable=False)
+    run_id = db.Column(db.Integer, db.ForeignKey('run.id'), nullable=False)

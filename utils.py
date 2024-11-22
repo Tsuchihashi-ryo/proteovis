@@ -172,6 +172,7 @@ class ExperimentPath:
             self.experiment_name = experiment
             self.analysis = os.path.join(self.experiment, "analysis")
             self.raw = os.path.join(self.experiment, "raw_data")
+            self.worksheet = os.path.join(self.experiment, "worksheet")
             self.data = {}
 
 
