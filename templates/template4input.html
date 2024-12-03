@@ -1,6 +1,11 @@
 {% extends "template.html" %}
 
 {% block script_code %}
+<script>
+    document.getElementById('file').addEventListener('change', function() {
+        document.getElementById('uploadForm').submit();
+    });
+</script>
 {% endblock %}
 
 {% block left_panel %}
@@ -14,9 +19,11 @@
     </form>
     {% endfor %}
 
-    <form method="POST" action="/experiment/{{experiment_name}}/upload" enctype="multipart/form-data">
-        <input type="file" if="file" name="file" class="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition duration-300">
-        <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition duration-300">Add files</button>
+    <form method="POST" action="/experiment/{{experiment_name}}/upload" enctype="multipart/form-data" id="uploadForm">
+        <label class="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition duration-300" style="cursor:pointer;">
+            Add File
+          <input type="file" id="file" name="file" style="display: none">
+        </label>
     </form>
 {% endblock %}
 

@@ -11,9 +11,14 @@
 <body>
     <form method="post">
     <div class="p-4 max-w-4xl mx-auto">
-        <h1 class="text-2xl font-bold mb-4">AKTA ワークシートクリエーター</h1>
+        <h1 class="text-2xl font-bold mb-4">AKTA Worksheet</h1>
         
         <div class="grid grid-cols-1 gap-4 mb-4">
+            <div class="space-y-2">
+                <label class="block">
+                    <h2 class="text-lg font-semibold mb-2">WorkSheet Name</h2>
+                    <input type="text" id="worksheet-name" name="worksheet-name" placeholder="名前" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-sm shadow-sm placeholder-gray-400 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500" />
+                </label>
             <div>
                 <h2 class="text-lg font-semibold mb-2">カラム</h2>
                 <div class="space-y-2">
@@ -157,8 +162,8 @@
         </table>
 
         <div class="mt-4 space-x-2">
-            <button id="add-row" class="px-4 py-2 font-semibold text-sm bg-cyan-500 text-white rounded-full shadow-sm">+ 行を追加</button>
-            <button id="delete-row" class="px-4 py-2 font-semibold text-sm bg-red-500 text-white rounded-full shadow-sm">最後の行を削除</button>
+            <button type="button" id="add-row" class="px-4 py-2 font-semibold text-sm bg-cyan-500 text-white rounded-full shadow-sm">+ 行を追加</button>
+            <button type="button" id="delete-row" class="px-4 py-2 font-semibold text-sm bg-red-500 text-white rounded-full shadow-sm">最後の行を削除</button>
         </div>
 
         <div id="total-time" class="mt-4"></div> <div id="total-time" class="mt-4"></div>
@@ -167,13 +172,18 @@
         <div class="h-128 w-full">
             <canvas id="gradient-chart"></canvas>
         </div>
-        <button id="create-worksheet" class="px-4 py-2 font-semibold text-sm bg-cyan-500 text-white rounded-full shadow-sm">Create</button>
+        <button type="submit" id="create-worksheet" class="px-4 py-2 font-semibold text-sm bg-cyan-500 text-white rounded-full shadow-sm">Create</button>
     </form>
         <div id="worksheet"></div>
         <div id="worksheet-container"></div>
 
     </div>
     <script src="{{ url_for('static', filename='autocomplete.js') }}"></script>
-    <script src="{{ url_for('static', filename='script.js') }}"></script>
+    <script src="{{ url_for('static', filename='script.js') }}">
+    </script>
+    <script>
+        const jsonData = JSON.parse('{{ data | safe }}'); // JSON文字列をパース
+        new AKTAWorksheetCreator(jsonData);
+    </script>
 </body>
 </html>

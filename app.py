@@ -1,4 +1,4 @@
-from flask import Blueprint,current_app, render_template, request, redirect, url_for, session,flash
+from flask import Blueprint,current_app, render_template, jsonify,request, redirect, url_for, session,flash
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager,current_user, login_required, login_user, logout_user
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -13,6 +13,7 @@ import pandas as pd
 import json
 from pathlib import Path
 import shutil
+import numpy as np
 
 import proteovis as pv
 from utils import *
@@ -249,10 +250,56 @@ def delete_experiment(experiment_name):
 
 @main.route("/experiment/<experiment_name>/worksheet4akta/<worksheet_name>", methods=["GET", "POST"])
 def worksheet4akta(experiment_name,worksheet_name):
+    exppath = ExperimentPath(header=current_app.config['UPLOAD_FOLDER'],
+                                experiment=experiment_name)
+    experiment_id = Experiment.query.filter_by(name=experiment_name).first().id
+
+    worksheet_dir = exppath.worksheet
+    worksheet_path = exppath.worksheets.get(worksheet_name)
+    print(worksheet_path)
+
+
     if request.method == "GET":
-        return render_template("worksheet4akta.html") # index.htmlをレンダリング
+        if worksheet_path:
+            json_data = json.load(open(worksheet_path,),)
+            data = {
+            }
+            if json_data.get("program"):
+                data["rows"] = list(json_data["program"].values())
+            else:
+                data["rows"] = [
+                        {"rate": 1, "length": 5, "percentB": 0, "slopeType": "step", "path": "", "fractionVol": 0},
+                        {"rate": 1, "length": 1, "percentB": 0, "slopeType": "step", "path": "sample loop", "fractionVol": 0},
+                        {"rate": 1, "length": 5, "percentB": 0, "slopeType": "step", "path": "", "fractionVol": 0},
+                        {"rate": 1, "length": 10, "percentB": 50, "slopeType": "gradient", "path": "", "fractionVol": 0},
+                        {"rate": 1, "length": 5, "percentB": 100, "slopeType": "step", "path": "", "fractionVol": 0},
+                        {"rate": 1, "length": 3, "percentB": 0, "slopeType": "step", "path": "", "fractionVol": 0},
+                        ]
+            
+            if json_data.get("column_cv"):
+                data["cv"] = json_data["column_cv"]
+            else:
+                data["cv"] = 1
+
+        else: 
+            data = {
+                "rows":[
+                        {"rate": 1, "length": 5, "percentB": 0, "slopeType": "step", "path": "", "fractionVol": 0},
+                        {"rate": 1, "length": 1, "percentB": 0, "slopeType": "step", "path": "sample loop", "fractionVol": 0},
+                        {"rate": 1, "length": 5, "percentB": 0, "slopeType": "step", "path": "", "fractionVol": 0},
+                        {"rate": 1, "length": 10, "percentB": 50, "slopeType": "gradient", "path": "", "fractionVol": 0},
+                        {"rate": 1, "length": 5, "percentB": 100, "slopeType": "step", "path": "", "fractionVol": 0},
+                        {"rate": 1, "length": 3, "percentB": 0, "slopeType": "step", "path": "", "fractionVol": 0},
+                        ],
+                "cv":1
+            }
+        data_json_string = json.dumps(data,)
+        return render_template("worksheet4akta.html",data=data_json_string) # index.htmlをレンダリング
+    
+    
     elif request.method == "POST":
         data = {
+            "worksheet_name":request.form.get("worksheet-name"),
             "column_name": request.form.get("column-name"),
             "column_cv": request.form.get("column-cv"),
             "sample_loop_name": request.form.get("sample-loop-name"),
@@ -273,29 +320,56 @@ def worksheet4akta(experiment_name,worksheet_name):
             "sample_pump_buffer": request.form.get("sample-pump-buffer"),
         }
 
+        for k,v in data.items():
+            try:
+                data[k] = float(v)
+            except:
+                continue
+
+        worksheet_dir = exppath.worksheet
+
         # プログラムテーブルのデータ抽出 (これは動的なので、少し複雑です)
-        rates = request.form.getlist('rate[]')
-        lengths = request.form.getlist('length[]')
-        percentBs = request.form.getlist('percentB[]')
+        rates = np.array(request.form.getlist('rate[]')).astype(float)
+        lengths = np.array(request.form.getlist('length[]')).astype(float)
+        percentBs = np.array(request.form.getlist('percentB[]')).astype(float)
         slopeTypes = request.form.getlist('slopeType[]')
         paths = request.form.getlist('path[]')
-        fractionVols = request.form.getlist('fractionVol[]')
+        fractionVols = np.array(request.form.getlist('fractionVol[]')).astype(float)
 
         program_df = pd.DataFrame(data=dict(
-            Rate=rates,
-            Length=lengths,
-            PercentB=percentBs,
-            SlopeType=slopeTypes,
-            Path=paths,
-            FractionVol=fractionVols
+            rate=rates,
+            length=lengths,
+            percentB=percentBs,
+            slopeType=slopeTypes,
+            path=paths,
+            fractionVol=fractionVols
         ))
 
-        print(program_df)
+        data["program"] = program_df.to_dict(orient="index")
+        worksheet_path = os.path.join(os.path.join(worksheet_dir,f"{worksheet_name}.json"))
+        json_save(data,worksheet_path)
+        data = json.load(open(worksheet_path))
+        data_json_string = json.dumps(data,)
 
-        return data
+
+        chart_data = {}
+        chart_data["rows"] = list(data["program"].values())
+        chart_data["cv"] = data["column_cv"]
+
+        chart_data_json_string = json.dumps(chart_data,)
+
+        worksheet = Worksheet(experiment_id=experiment_id,
+                              name=worksheet_name,
+                              type="AKTA")
+        
+        db.session.add(worksheet)
+        db.session.commit()
+
+        return render_template("worksheet4aktaview.html",
+                               data=data_json_string,
+                               chart_data=chart_data_json_string)
 
 
-    
 
 
 @main.route(f"/experiment/<experiment_name>")

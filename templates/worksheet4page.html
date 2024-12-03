@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SDS-PAGE 実験ワークシート</title>
+  <style>
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    th, td {
+      border: 1px solid black;
+      padding: 8px;
+      text-align: left;
+    }
+  </style>
+</head>
+<body>
+
+<h1>SDS-PAGE 実験ワークシート</h1>
+
+<h2>実験情報</h2>
+<label for="experiment-name">実験名:</label>
+<input type="text" id="experiment-name" value="タンパク質のSDS-PAGE分析"><br>
+<label for="date">日付:</label>
+<input type="date" id="date"><br>
+<label for="experimenter">実験者:</label>
+<input type="text" id="experimenter"><br>
+
+
+<h2>分析検体情報</h2>
+<table>
+  <thead>
+    <tr>
+      <th>検体名</th>
+      <th>A280測定値</th>
+      <th>タンパク質濃度(µg/mL)</th>
+      <th>希釈倍率</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><input type="text"></td>
+      <td><input type="number"></td>
+      <td><input type="number"></td>
+      <td><input type="number"></td>
+    </tr>
+    <tr>
+      <td><input type="text"></td>
+      <td><input type="number"></td>
+      <td><input type="number"></td>
+      <td><input type="number"></td>
+    </tr>
+    <!-- 必要に応じて行を追加 -->
+  </tbody>
+</table>
+
+<h2>実験手順</h2>
+<ol>
+  <li>分析検体のA280測定値からタンパク質濃度を算出し、最低濃度の検体に合わせてPBSで希釈した。</li>
+  <li>希釈した検体、NuPAGE LDS Sample Buffer（4×）、NuPAGE Sample Reducing Agent（10×）を13:5:2の比率で混合し、60°Cで15分間加熱した。非還元状態の解析には、NuPAGE Sample Reducing Agent（10×）をmilliQ水に変えて同様に調製した検体を用いた。</li>
+  <li>泳動槽にNuPAGE Bis-Tris Gel (4-12%, 15 well) をセットし、各wellに調製した検体を添加した。</li>
+  <li>泳動槽に泳動bufferを加え、200 V、35分間、室温で泳動した。</li>
+  <li>ゲルをInstantBlue染色液に浸し、2時間以上振とうした。</li>
+  <li>染色液をmilliQ水に交換して脱色後、GS-900 Caribrated densitometerで画像データを取り込んだ。</li>
+</ol>
+
+
+<h2>結果</h2>
+<label for="image-file">画像ファイル:</label>
+<input type="file" id="image-file" accept="image/*"><br>
+<!-- 画像表示領域 -->
+<img id="uploaded-image" src="#" alt="SDS-PAGE画像" style="max-width: 500px;">
+
+
+<h2>考察</h2>
+<textarea rows="10" cols="50"></textarea>
+
+
+</body>
+</html>

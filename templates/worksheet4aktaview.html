@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chromatography Worksheet</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #ccc;
+        }
+        .responsible-info {
+            display: grid;
+            grid-template-columns: 0.5fr 1fr 0.5fr 1fr;
+            gap: 20px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .input-line {
+            border-bottom: 1px solid black;
+            height: 1.5em;
+        }
+        .card {
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: white;
+        }
+        .card-title {
+            font-size: 1.2em;
+            font-weight: bold;
+            margin-bottom: 15px;
+            padding-bottom: 5px;
+            border-bottom: 2px solid #eee;
+        }
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .buffer-box {
+            border: 1px solid #ccc;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 15px;
+        }
+        th, td {
+            border: 1px solid #ccc;
+            padding: 8px;
+            text-align: center;
+        }
+        th {
+            background: #f5f5f5;
+        }
+        .chromatogram-area {
+            height: 300px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 15px 0;
+        }
+        .memo-area {
+            border-top: 1px dashed #ccc;
+            height: 120px;
+        }
+        @media print {
+            body { 
+                padding: 0; 
+            }
+            .card {
+                break-inside: avoid;
+                border: 1px solid #000;
+            }
+            .chromatogram-area {
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1 id="worksheet-name">Chromatography Worksheet</h1>
+        <div class="responsible-info py-4">
+                <p>試験担当者:</p>
+                <div class="input-line"></div>
+                <p>実施日:</p>
+                <div class="input-line"></div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-title">□　カラム情報</div>
+        <div class="grid-2">
+            <div>
+                <p><strong>カラム名:</strong></p>
+                <p id="column-name">-</p>
+            </div>
+            <div>
+                <p><strong>カラムCV:</strong></p>
+                <p id="column-cv">-</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-title">□　サンプル情報</div>
+        <div class="grid-2">
+            <div>
+                <p><strong>サンプルループ名:</strong></p>
+                <p id="sample-loop-name">-</p>
+            </div>
+            <div>
+                <p><strong>サンプルループ容量:</strong></p>
+                <p id="sample-loop-volume">-</p>
+            </div>
+            <div>
+                <p><strong>サンプルポンプバッファー:</strong></p>
+                <p id="sample-pump-buffer">-</p>
+            </div>
+            <div>
+                <p><strong>サンプルポンプS1:</strong></p>
+                <p id="sample-pump-s1">-</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-title">□　バッファー情報</div>
+        <div class="grid-2">
+            <div class="buffer-box">
+                <h3>Buffer A</h3>
+                <div>
+                    <p><strong>A1:</strong></p>
+                    <p>pH: <span id="a1-ph">-</span></p>
+                    <p>Number: <span id="number-a1">-</span></p>
+                    <p>Buffer: <span id="buffer-a1">-</span></p>
+                </div>
+                <div>
+                    <p><strong>A2:</strong></p>
+                    <p>pH: <span id="a2-ph">-</span></p>
+                    <p>Number: <span id="number-a2">-</span></p>
+                    <p>Buffer: <span id="buffer-a2">-</span></p>
+                </div>
+            </div>
+            <div class="buffer-box">
+                <h3>Buffer B</h3>
+                <div>
+                    <p><strong>B1:</strong></p>
+                    <p>pH: <span id="b1-ph">-</span></p>
+                    <p>Number: <span id="number-b1">-</span></p>
+                    <p>Buffer: <span id="buffer-b1">-</span></p>
+                </div>
+                <div>
+                    <p><strong>B2:</strong></p>
+                    <p>pH: <span id="b2-ph">-</span></p>
+                    <p>Number: <span id="number-b2">-</span></p>
+                    <p>Buffer: <span id="buffer-b2">-</span></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-title">□　プログラム詳細</div>
+        <table id="program-table">
+            <thead>
+                <tr>
+                    <th>ステップ</th>
+                    <th>レート (mL/min)</th>
+                    <th>長さ (min)</th>
+                    <th>Buffer B (%)</th>
+                    <th>タイプ</th>
+                    <th>パス</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <div class="card">
+        <div class="card-title">クロマトグラム</div>
+        <div class="chromatogram-area">
+                <canvas id="gradient-chart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-title">メモ</div>
+        <div class="memo-area"></div>
+    </div>
+
+    <script>
+        function displayData(data) {
+            document.getElementById('worksheet-name').textContent = data.worksheet_name || 'Chromatography Worksheet';
+            document.getElementById('column-name').textContent = data.column_name || '-';
+            document.getElementById('column-cv').textContent = data.column_cv ? `${data.column_cv} mL` : '-';
+            document.getElementById('sample-loop-name').textContent = data.sample_loop_name || '-';
+            document.getElementById('sample-loop-volume').textContent = data.sample_loop_volume ? `${data.sample_loop_volume} mL` : '-';
+            
+            document.getElementById('a1-ph').textContent = data.a1_ph || '-';
+            document.getElementById('a2-ph').textContent = data.a2_ph || '-';
+            document.getElementById('b1-ph').textContent = data.b1_ph || '-';
+            document.getElementById('b2-ph').textContent = data.b2_ph || '-';
+            
+            document.getElementById('number-a1').textContent = data.number_a1 || '-';
+            document.getElementById('number-a2').textContent = data.number_a2 || '-';
+            document.getElementById('number-b1').textContent = data.number_b1 || '-';
+            document.getElementById('number-b2').textContent = data.number_b2 || '-';
+            
+            document.getElementById('buffer-a1').textContent = data.buffer_a1 || '-';
+            document.getElementById('buffer-a2').textContent = data.buffer_a2 || '-';
+            document.getElementById('buffer-b1').textContent = data.buffer_b1 || '-';
+            document.getElementById('buffer-b2').textContent = data.buffer_b2 || '-';
+
+            document.getElementById('sample-pump-buffer').textContent = data.sample_pump_buffer || '-';
+            document.getElementById('sample-pump-s1').textContent = data.sample_pump_s1 || '-';
+
+            if (data.program) {
+                const program = typeof data.program === 'string' ? JSON.parse(data.program) : data.program;
+                const tbody = document.querySelector('#program-table tbody');
+                tbody.innerHTML = '';
+
+                Object.entries(program).forEach(([step, info]) => {
+                    const row = tbody.insertRow();
+                    row.innerHTML = `
+                        <td>${parseInt(step) + 1}</td>
+                        <td>${info.rate}</td>
+                        <td>${info.length}</td>
+                        <td>${info.percentB}</td>
+                        <td>${info.slopeType}</td>
+                        <td>${info.path || '-'}</td>
+                    `;
+                });
+            }
+        };
+
+        const sampleData = JSON.parse('{{ data | safe }}'); // JSON文字列をパース
+        console.log(sampleData)
+
+        window.onload = () => displayData(sampleData);
+    </script>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+    <script>
+        const ChartData = JSON.parse('{{ chart_data | safe }}'); // JSON文字列をパース
+        new AKTAWorksheetCreator2(ChartData);
+    </script>
+</body>

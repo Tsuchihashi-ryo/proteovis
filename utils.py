@@ -174,12 +174,15 @@ class ExperimentPath:
             self.raw = os.path.join(self.experiment, "raw_data")
             self.worksheet = os.path.join(self.experiment, "worksheet")
             self.data = {}
+            self.worksheets = {}
 
 
             data_folders = glob(f"{self.analysis}/*")
+            worksheet_datas = glob(f"{self.worksheet}/*")
 
             for folder in data_folders:
-                name = os.path.basename(folder)
+                name = os.path.basename(folder.replace("\\","/"))
+                
                 file_type_binary = os.path.exists(os.path.join(folder,"all_data.csv"))
                 if file_type_binary:
                         data_type = "AKTA"
@@ -187,6 +190,13 @@ class ExperimentPath:
                         data_type = "PAGE"
                 
                 self.data[name] = DataPath(self.experiment,self.experiment_name,name,data_type=data_type)
+            
+            for worksheet in worksheet_datas:
+                name = os.path.basename(worksheet)[:-5]
+                print(name)
+                self.worksheets[name] = os.path.join(self.worksheet,
+                                                     f"{name}.json"
+                                                     ).replace("\\","/")
 
 
 
