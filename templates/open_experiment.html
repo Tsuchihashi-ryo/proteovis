@@ -116,6 +116,9 @@
                     <button>{{ experiment }}</button>
                 </form></td>
                 <td class="data-cell">{{ values }}</td>
+                <td><form method="get" action="/experiment/{{ experiment }}/delete">
+                    <button style="color: #a5020292;" disabled>DELETE</button>
+                </form></td>
             </tr>
             {% endfor %}
         </tbody>

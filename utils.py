@@ -172,13 +172,17 @@ class ExperimentPath:
             self.experiment_name = experiment
             self.analysis = os.path.join(self.experiment, "analysis")
             self.raw = os.path.join(self.experiment, "raw_data")
+            self.worksheet = os.path.join(self.experiment, "worksheet")
             self.data = {}
+            self.worksheets = {}
 
 
             data_folders = glob(f"{self.analysis}/*")
+            worksheet_datas = glob(f"{self.worksheet}/*")
 
             for folder in data_folders:
-                name = os.path.basename(folder)
+                name = os.path.basename(folder.replace("\\","/"))
+                
                 file_type_binary = os.path.exists(os.path.join(folder,"all_data.csv"))
                 if file_type_binary:
                         data_type = "AKTA"
@@ -186,6 +190,13 @@ class ExperimentPath:
                         data_type = "PAGE"
                 
                 self.data[name] = DataPath(self.experiment,self.experiment_name,name,data_type=data_type)
+            
+            for worksheet in worksheet_datas:
+                name = os.path.basename(worksheet)[:-5]
+                print(name)
+                self.worksheets[name] = os.path.join(self.worksheet,
+                                                     f"{name}.json"
+                                                     ).replace("\\","/")
 
 
 
@@ -204,6 +215,7 @@ class DataPath:
                         self.phase = os.path.join(self.analysis, "phase.csv")
                         self.pool = os.path.join(self.analysis, "pool.json").replace("\\","/")
                         self.show = os.path.join(self.analysis, "show.csv")
+                        self.config = os.path.join(self.analysis, "config.json").replace("\\","/")
                 else:
                         self.file_type = "PAGE"
                         self.config = os.path.join(self.analysis, "config.json").replace("\\","/")

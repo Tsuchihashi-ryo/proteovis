@@ -9,3 +9,7 @@ seaborn
 flask
 psutil
 requests
+Flask-SQLAlchemy
+flask-login
+Flask-WTF
+email_validator

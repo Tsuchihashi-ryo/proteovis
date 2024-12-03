@@ -1,46 +1,78 @@
-from flask import Flask, render_template, request, redirect, url_for, session
+from flask import Blueprint,current_app, render_template, jsonify,request, redirect, url_for, session,flash
+from flask_sqlalchemy import SQLAlchemy
+from flask_login import LoginManager,current_user, login_required, login_user, logout_user
+from werkzeug.security import generate_password_hash, check_password_hash
+from urllib.parse import urlparse
+
 import os
 from datetime import datetime
 from glob import glob
-import proteovis as pv
+
 import plotly.io as pio
 import pandas as pd
-import seaborn as sns
-from utils import *
 import json
-import pandas as pd
 from pathlib import Path
+import shutil
+import numpy as np
+
+import proteovis as pv
+from utils import *
+from models import *
+from forms import *
 
 pio.orca.config.executable = 'C:/Users/jb60386/AppData/Local/Programs/orca/orca.exe'
-app = Flask(__name__,static_folder='./static', static_url_path='/static')
-app.secret_key = b'fewgagaehrae'
-app.jinja_env.auto_reload = True
 
-UPLOAD_FOLDER = './static/uploads'
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+main = Blueprint('main', __name__)
 
 
-@app.route('/', methods=['GET'])
+@main.before_request
+@login_required
+def before_request():
+    pass
+
+
+# logoutページのルーティング
+@main.route('/logout')
+def logout():
+  # logout_user関数を呼び出し
+  logout_user()
+  # トップページにリダイレクト
+  return redirect(url_for('main.index'))
+
+
+
+@main.route('/', methods=['GET'])
 def index():
     return render_template('index.html')
 
 
-@app.route('/new_experiment', methods=['GET', 'POST'])
+@main.route('/new_experiment', methods=['GET', 'POST'])
 def new_experiment():
     if request.method == 'POST':
         experiment_name = request.form.get('experiment-name')
         user_name = request.form.get('user-name')
         project_code = request.form.get('project-code')
 
+        new_experiment=Experiment(name=experiment_name,
+                                  user_id=user_name,
+                                  project_code=project_code)
+
+        db.session.add(new_experiment)
+        db.session.commit()
+
         #today_str = datetime.now().strftime('%Y%m%d')
-        exp_dir = os.path.join(app.config['UPLOAD_FOLDER'], f"{experiment_name}")
-        raw_dir = os.path.join(exp_dir, "raw_data")
-        analysis_dir = os.path.join(exp_dir, "analysis")
+        exppath = ExperimentPath(header=current_app.config['UPLOAD_FOLDER'],
+                             experiment=experiment_name)
+    
+        analysis_dir = exppath.analysis
+        raw_dir = exppath.raw
+        analysis_dir = exppath.analysis
+        worksheet_dir = exppath.worksheet
 
         try:
             os.makedirs(raw_dir, exist_ok=False) # exist_ok=Falseでエラーを発生させる
             os.makedirs(analysis_dir, exist_ok=False)
+            os.makedirs(worksheet_dir, exist_ok=False)
         except FileExistsError:
             return render_template('new_experiment.html', error="Error: A folder with that name already exists for today. Please choose a different experiment name.")
 
@@ -80,44 +112,269 @@ def new_experiment():
                 #return render_template('chromatography.html',chromatogram=test)
                 akta_fig.write_image(os.path.join(data_dir,"icon.png"),engine="orca")
 
+                run = Run(experiment_id=new_experiment.id,
+                          name=name,
+                          type="AKTA")
+                
+                db.session.add(run)
+                db.session.commit()
+
+                config = {"run_id":run.id}
+                json_save(config,os.path.join(data_dir,"config.json"))
+
 
             elif path[-3:] in ["png","jpg","iff","tif"]:
                 page_fig = get_page_image(path)
                 ext = os.path.splitext(path)[-1]
                 page_fig.write_image(os.path.join(data_dir,"icon.png"),engine="orca")
-                config = {"ext":ext}
+                run = Run(experiment_id=new_experiment.id,
+                          name=name,
+                          type="PAGE")
+                
+                db.session.add(run)
+                db.session.commit()
+                
+                config = {"ext":ext,"run_id":run.id}
                 json_save(config,os.path.join(data_dir,"config.json"))
+
+                
+            
+            
                 
 
     
-        return redirect(url_for(f"experiment",experiment_name=experiment_name))#select(experiment_name)
+        return redirect(url_for(f"main.experiment",experiment_name=experiment_name))#select(experiment_name)
 
-    return render_template('new_experiment.html', error=None) #エラーメッセージをクリア
+    return render_template('new_experiment.html', error=None,user_name=current_user.name) #エラーメッセージをクリア
 
 
-@app.route('/open_experiment', methods=['GET'])
+
+@main.route("/experiment/<experiment_name>/upload", methods=["POST"])
+def upload(experiment_name):
+    exppath = ExperimentPath(header=current_app.config['UPLOAD_FOLDER'],
+                        experiment=experiment_name)
+    experiment_id = Experiment.query.filter_by(name=experiment_name).first().id
+
+
+    raw_dir = exppath.raw
+    analysis_dir = exppath.analysis
+    worksheet_dir = exppath.worksheet
+
+    file = request.files.get('file')
+
+    print(file.filename)
+    if file.filename:
+        filename = os.path.join(raw_dir, file.filename)
+        file.save(filename)
+        print(f"Uploaded file: {filename}")
+
+
+    rawfile = filename
+
+
+    for path in [rawfile]:
+        name = os.path.basename(path).split(".")[0]
+        data_dir = os.path.join(analysis_dir,name)
+        
+        try:
+            os.makedirs(data_dir,exist_ok=False)
+        except FileExistsError:
+            return render_template('index.html', error="Error: A folder with that name already exists for today. Please choose a different file.")
+
+        if path[-3:] == "zip":
+            akta_df,frac_df,phase_df,akta_fig = get_akta_data(path)
+            akta_df.to_csv(os.path.join(data_dir,"all_data.csv"))
+            frac_df.to_csv(os.path.join(data_dir,"fraction.csv"))
+            phase_df.to_csv(os.path.join(data_dir,"phase.csv"))
+            test = akta_fig.to_html(full_html=False)
+            #return render_template('chromatography.html',chromatogram=test)
+            akta_fig.write_image(os.path.join(data_dir,"icon.png"),engine="orca")
+
+            run = Run(experiment_id=experiment_id,
+                        name=name,
+                        type="AKTA")
+            
+            db.session.add(run)
+            db.session.commit()
+
+            config = {"run_id":run.id}
+            json_save(config,os.path.join(data_dir,"config.json"))
+
+
+        elif path[-3:] in ["png","jpg","iff","tif"]:
+            page_fig = get_page_image(path)
+            ext = os.path.splitext(path)[-1]
+            page_fig.write_image(os.path.join(data_dir,"icon.png"),engine="orca")
+            run = Run(experiment_id=experiment_id,
+                        name=name,
+                        type="PAGE")
+            
+            db.session.add(run)
+            db.session.commit()
+            
+            config = {"ext":ext,"run_id":run.id}
+            json_save(config,os.path.join(data_dir,"config.json"))
+
+
+    return redirect(url_for(f"main.experiment",experiment_name=experiment_name))#select(experiment_name)
+
+
+@main.route('/open_experiment', methods=['GET'])
 def open_experiment():
-    experiments = glob(os.path.join(app.config['UPLOAD_FOLDER'],"*"))
+    #experiments = glob(os.path.join(current_app.config['UPLOAD_FOLDER'],"*"))
+    experiments = Experiment.query.all()
 
     exp_dic = {}
 
     for exp in experiments:
-        exp_name = os.path.basename(exp)
-        exppath = ExperimentPath(header=app.config['UPLOAD_FOLDER'],
+        exp_name = exp.name
+        exppath = ExperimentPath(header=current_app.config['UPLOAD_FOLDER'],
                                 experiment=exp_name)
-        data = list(exppath.data.keys())
+        #data = list(exppath.data.keys())
+        data = [run.name for run in Run.query.filter_by(experiment_id=exp.id).all()]
 
-        exp_dic[exp_name] = data
+        exp_dic[exp_name] = ", ".join(data)
 
 
 
     return render_template('open_experiment.html', experiments=exp_dic)
 
 
+@main.route(f"/experiment/<experiment_name>/delete")
+def delete_experiment(experiment_name):
+    shutil.rmtree(os.path.join(current_app.config['UPLOAD_FOLDER'],experiment_name))
 
-@app.route(f"/experiment/<experiment_name>")
+    return redirect(url_for("main.open_experiment"))
+
+
+
+@main.route("/experiment/<experiment_name>/worksheet4akta/<worksheet_name>", methods=["GET", "POST"])
+def worksheet4akta(experiment_name,worksheet_name):
+    exppath = ExperimentPath(header=current_app.config['UPLOAD_FOLDER'],
+                                experiment=experiment_name)
+    experiment_id = Experiment.query.filter_by(name=experiment_name).first().id
+
+    worksheet_dir = exppath.worksheet
+    worksheet_path = exppath.worksheets.get(worksheet_name)
+    print(worksheet_path)
+
+
+    if request.method == "GET":
+        if worksheet_path:
+            json_data = json.load(open(worksheet_path,),)
+            data = {
+            }
+            if json_data.get("program"):
+                data["rows"] = list(json_data["program"].values())
+            else:
+                data["rows"] = [
+                        {"rate": 1, "length": 5, "percentB": 0, "slopeType": "step", "path": "", "fractionVol": 0},
+                        {"rate": 1, "length": 1, "percentB": 0, "slopeType": "step", "path": "sample loop", "fractionVol": 0},
+                        {"rate": 1, "length": 5, "percentB": 0, "slopeType": "step", "path": "", "fractionVol": 0},
+                        {"rate": 1, "length": 10, "percentB": 50, "slopeType": "gradient", "path": "", "fractionVol": 0},
+                        {"rate": 1, "length": 5, "percentB": 100, "slopeType": "step", "path": "", "fractionVol": 0},
+                        {"rate": 1, "length": 3, "percentB": 0, "slopeType": "step", "path": "", "fractionVol": 0},
+                        ]
+            
+            if json_data.get("column_cv"):
+                data["cv"] = json_data["column_cv"]
+            else:
+                data["cv"] = 1
+
+        else: 
+            data = {
+                "rows":[
+                        {"rate": 1, "length": 5, "percentB": 0, "slopeType": "step", "path": "", "fractionVol": 0},
+                        {"rate": 1, "length": 1, "percentB": 0, "slopeType": "step", "path": "sample loop", "fractionVol": 0},
+                        {"rate": 1, "length": 5, "percentB": 0, "slopeType": "step", "path": "", "fractionVol": 0},
+                        {"rate": 1, "length": 10, "percentB": 50, "slopeType": "gradient", "path": "", "fractionVol": 0},
+                        {"rate": 1, "length": 5, "percentB": 100, "slopeType": "step", "path": "", "fractionVol": 0},
+                        {"rate": 1, "length": 3, "percentB": 0, "slopeType": "step", "path": "", "fractionVol": 0},
+                        ],
+                "cv":1
+            }
+        data_json_string = json.dumps(data,)
+        return render_template("worksheet4akta.html",data=data_json_string) # index.htmlをレンダリング
+    
+    
+    elif request.method == "POST":
+        data = {
+            "worksheet_name":request.form.get("worksheet-name"),
+            "column_name": request.form.get("column-name"),
+            "column_cv": request.form.get("column-cv"),
+            "sample_loop_name": request.form.get("sample-loop-name"),
+            "sample_loop_volume": request.form.get("sample-loop-volume"),
+            "buffer_a1": request.form.get("buffer-a1"),
+            "number_a1": request.form.get("number-a1"),
+            "a1_ph": request.form.get("a1-ph"),
+            "buffer_a2": request.form.get("buffer-a2"),
+            "number_a2": request.form.get("number-a2"),
+            "a2_ph": request.form.get("a2-ph"),
+            "buffer_b1": request.form.get("buffer-b1"),
+            "number_b1": request.form.get("number-b1"),
+            "b1_ph": request.form.get("b1-ph"),
+            "buffer_b2": request.form.get("buffer-b2"),
+            "number_b2": request.form.get("number-b2"),
+            "b2_ph": request.form.get("b2-ph"),
+            "sample_pump_s1": request.form.get("sample-pump-s1"),
+            "sample_pump_buffer": request.form.get("sample-pump-buffer"),
+        }
+
+        for k,v in data.items():
+            try:
+                data[k] = float(v)
+            except:
+                continue
+
+        worksheet_dir = exppath.worksheet
+
+        # プログラムテーブルのデータ抽出 (これは動的なので、少し複雑です)
+        rates = np.array(request.form.getlist('rate[]')).astype(float)
+        lengths = np.array(request.form.getlist('length[]')).astype(float)
+        percentBs = np.array(request.form.getlist('percentB[]')).astype(float)
+        slopeTypes = request.form.getlist('slopeType[]')
+        paths = request.form.getlist('path[]')
+        fractionVols = np.array(request.form.getlist('fractionVol[]')).astype(float)
+
+        program_df = pd.DataFrame(data=dict(
+            rate=rates,
+            length=lengths,
+            percentB=percentBs,
+            slopeType=slopeTypes,
+            path=paths,
+            fractionVol=fractionVols
+        ))
+
+        data["program"] = program_df.to_dict(orient="index")
+        worksheet_path = os.path.join(os.path.join(worksheet_dir,f"{worksheet_name}.json"))
+        json_save(data,worksheet_path)
+        data = json.load(open(worksheet_path))
+        data_json_string = json.dumps(data,)
+
+
+        chart_data = {}
+        chart_data["rows"] = list(data["program"].values())
+        chart_data["cv"] = data["column_cv"]
+
+        chart_data_json_string = json.dumps(chart_data,)
+
+        worksheet = Worksheet(experiment_id=experiment_id,
+                              name=worksheet_name,
+                              type="AKTA")
+        
+        db.session.add(worksheet)
+        db.session.commit()
+
+        return render_template("worksheet4aktaview.html",
+                               data=data_json_string,
+                               chart_data=chart_data_json_string)
+
+
+
+
+@main.route(f"/experiment/<experiment_name>")
 def experiment(experiment_name):
-    exppath = ExperimentPath(header=app.config['UPLOAD_FOLDER'],
+    exppath = ExperimentPath(header=current_app.config['UPLOAD_FOLDER'],
                              experiment=experiment_name)
     
     analysis_dir = exppath.analysis
@@ -125,12 +382,12 @@ def experiment(experiment_name):
     sample_list = get_samples(exppath)
 
 
-    return render_template('template4input.html',sample_list=sample_list)
+    return render_template('template4input.html',experiment_name=experiment_name,sample_list=sample_list)
 
 
-@app.route(f"/experiment/<experiment_name>/AKTA/<run_name>/show", methods=["GET"])
+@main.route(f"/experiment/<experiment_name>/AKTA/<run_name>/show", methods=["GET"])
 def show_akta(experiment_name,run_name):
-    exppath = ExperimentPath(header=app.config['UPLOAD_FOLDER'],
+    exppath = ExperimentPath(header=current_app.config['UPLOAD_FOLDER'],
                              experiment=experiment_name)
     
     datapath = exppath.data[run_name]
@@ -146,14 +403,15 @@ def show_akta(experiment_name,run_name):
 
 
     return render_template('show_akta.html',
+                           experiment_name=experiment_name,
                            sample_list=sample_list,
                            akta_fig=fig_html,
                            info=info)
 
 
-@app.route(f"/experiment/<experiment_name>/AKTA/<run_name>/phase", methods=['GET', 'POST'])
+@main.route(f"/experiment/<experiment_name>/AKTA/<run_name>/phase", methods=['GET', 'POST'])
 def akta(experiment_name,run_name):
-    exppath = ExperimentPath(header=app.config['UPLOAD_FOLDER'],
+    exppath = ExperimentPath(header=current_app.config['UPLOAD_FOLDER'],
                              experiment=experiment_name)
     
     data_dir = exppath.data[run_name].analysis
@@ -178,12 +436,12 @@ def akta(experiment_name,run_name):
 
         df.to_csv(os.path.join(data_dir,"phase.csv"),na_rep="A")
         
-        return redirect(url_for(f"akta_pooling",experiment_name=experiment_name, run_name=run_name))
+        return redirect(url_for(f"main.akta_pooling",experiment_name=experiment_name, run_name=run_name))
 
 
-@app.route(f"/experiment/<experiment_name>/AKTA/<run_name>/pooling", methods=['GET', 'POST'])
+@main.route(f"/experiment/<experiment_name>/AKTA/<run_name>/pooling", methods=['GET', 'POST'])
 def akta_pooling(experiment_name,run_name):
-    exppath = ExperimentPath(header=app.config['UPLOAD_FOLDER'],
+    exppath = ExperimentPath(header=current_app.config['UPLOAD_FOLDER'],
                                 experiment=experiment_name)
     
     datapath = exppath.data[run_name]
@@ -221,12 +479,12 @@ def akta_pooling(experiment_name,run_name):
 
         json_save(pool_dict,datapath.pool)
 
-        return redirect(url_for(f"akta_fraction",experiment_name=experiment_name, run_name=run_name))
+        return redirect(url_for(f"main.akta_fraction",experiment_name=experiment_name, run_name=run_name))
 
 
-@app.route(f"/experiment/<experiment_name>/AKTA/<run_name>/fraction", methods=['GET', 'POST'])
+@main.route(f"/experiment/<experiment_name>/AKTA/<run_name>/fraction", methods=['GET', 'POST'])
 def akta_fraction(experiment_name,run_name):
-    exppath = ExperimentPath(header=app.config['UPLOAD_FOLDER'],
+    exppath = ExperimentPath(header=current_app.config['UPLOAD_FOLDER'],
                             experiment=experiment_name) 
     datapath = exppath.data[run_name]
     data_dir = datapath.analysis
@@ -293,27 +551,42 @@ def akta_fraction(experiment_name,run_name):
 
         show_df.to_csv(datapath.show)
 
-    return redirect(url_for("show_akta", experiment_name=experiment_name,run_name=run_name))
+        config = json.load(open(datapath.config))
 
 
-@app.route("/reload_pool",methods=["GET"])
+        Fraction.query.filter_by(run_id=config["run_id"]).delete()
+        db.session.commit()
+
+        for id,row in show_df.iterrows():
+
+            fraction = Fraction(run_id=config["run_id"],
+                                fraction_id=id,
+                                name=row["Name"],)
+            
+            db.session.add(fraction)
+            db.session.commit()
+
+    return redirect(url_for("main.show_akta", experiment_name=experiment_name,run_name=run_name))
+
+
+@main.route("/reload_pool",methods=["GET"])
 def reload_pool():
     experiment_name = session["experiment_name"]
     run_name = session["run_name"]
 
-    exppath = ExperimentPath(header=app.config['UPLOAD_FOLDER'],
+    exppath = ExperimentPath(header=current_app.config['UPLOAD_FOLDER'],
                             experiment=experiment_name) 
     datapath = exppath.data[run_name]
 
     os.remove(datapath.show)
 
-    return redirect(url_for(f"akta_fraction",experiment_name=experiment_name, run_name=run_name))
+    return redirect(url_for(f"main.akta_fraction",experiment_name=experiment_name, run_name=run_name))
 
 
 
-@app.route(f"/experiment/<experiment_name>/PAGE/<run_name>/check", methods=["GET","POST"])
+@main.route(f"/experiment/<experiment_name>/PAGE/<run_name>/check", methods=["GET","POST"])
 def page_check(experiment_name,run_name):
-    exppath = ExperimentPath(header=app.config['UPLOAD_FOLDER'],
+    exppath = ExperimentPath(header=current_app.config['UPLOAD_FOLDER'],
                             experiment=experiment_name)
     
     analysis_dir = exppath.analysis
@@ -371,19 +644,19 @@ def page_check(experiment_name,run_name):
     return render_template('check.html',sample_list=sample_list,page_fig=fig_html,lane_width=lane_width,margin=margin)
 
 
-@app.route(f"/save_page", methods=["GET"])
+@main.route(f"/save_page", methods=["GET"])
 def save_page():
     experiment_name = session["experiment_name"]
     run_name = session["run_name"]
     type = session["type"]
-    return redirect(url_for(f"page_annotate",experiment_name=experiment_name,run_name=run_name))
+    return redirect(url_for(f"main.page_annotate",experiment_name=experiment_name,run_name=run_name))
 
 
 
 
-@app.route(f"/experiment/<experiment_name>/PAGE/<run_name>/annotate", methods=["GET","POST"])
+@main.route(f"/experiment/<experiment_name>/PAGE/<run_name>/annotate", methods=["GET","POST"])
 def page_annotate(experiment_name,run_name):
-    exppath = ExperimentPath(header=app.config['UPLOAD_FOLDER'],
+    exppath = ExperimentPath(header=current_app.config['UPLOAD_FOLDER'],
                             experiment=experiment_name)
     
     analysis_dir = exppath.analysis
@@ -468,16 +741,16 @@ def page_annotate(experiment_name,run_name):
 
         df.to_csv(datapath.annotation)
 
-        return redirect(url_for("page_marker",experiment_name=experiment_name,run_name=run_name))
+        return redirect(url_for("main.page_marker",experiment_name=experiment_name,run_name=run_name))
 
     elif request.method == 'GET':
-        return render_template('annotate.html',sample_list=sample_list,page_fig=fig_html,lane_list=lane_list, suggest_list=suggest_list)
+        return render_template('annotate.html',experiment_name=experiment_name,sample_list=sample_list,page_fig=fig_html,lane_list=lane_list, suggest_list=suggest_list)
 
 
-@app.route(f"/experiment/<experiment_name>/PAGE/<run_name>/marker", methods=["GET","POST"])
+@main.route(f"/experiment/<experiment_name>/PAGE/<run_name>/marker", methods=["GET","POST"])
 def page_marker(experiment_name,run_name):
 
-    exppath = ExperimentPath(header=app.config['UPLOAD_FOLDER'].replace("/","\\"),
+    exppath = ExperimentPath(header=current_app.config['UPLOAD_FOLDER'].replace("/","\\"),
                              experiment=experiment_name)
     
     session["experiment_name"] = experiment_name
@@ -535,6 +808,7 @@ def page_marker(experiment_name,run_name):
 
 
     return render_template('marker.html',
+                           experiment_name=experiment_name,
                            sample_list=sample_list,
                            page_fig=fig_html,
                            marker_fig=marker_html,
@@ -543,13 +817,13 @@ def page_marker(experiment_name,run_name):
                            marker_ids=marker_ids)
 
 
-@app.route(f"/save_marker", methods=["POST"])
+@main.route(f"/save_marker", methods=["POST"])
 def save_marker():
     experiment_name = session["experiment_name"]
     run_name = session["run_name"]
     type = session["type"]
 
-    exppath = ExperimentPath(header=app.config['UPLOAD_FOLDER'].replace("/","\\"),
+    exppath = ExperimentPath(header=current_app.config['UPLOAD_FOLDER'].replace("/","\\"),
                              experiment=experiment_name)
     
     datapath = exppath.data[run_name]
@@ -562,13 +836,13 @@ def save_marker():
     print("gin")
 
 
-    return redirect(url_for(f"show_page",experiment_name=experiment_name,run_name=run_name))
+    return redirect(url_for(f"main.show_page",experiment_name=experiment_name,run_name=run_name))
 
 
 
-@app.route(f"/experiment/<experiment_name>/PAGE/<run_name>/show", methods=["GET","POST"])
+@main.route(f"/experiment/<experiment_name>/PAGE/<run_name>/show", methods=["GET","POST"])
 def show_page(experiment_name,run_name):
-    exppath = ExperimentPath(header=app.config['UPLOAD_FOLDER'].replace("/","\\"),
+    exppath = ExperimentPath(header=current_app.config['UPLOAD_FOLDER'].replace("/","\\"),
                              experiment=experiment_name)
     
     sample_list = get_samples(exppath)
@@ -593,11 +867,10 @@ def show_page(experiment_name,run_name):
 
 
     return render_template(f"show_page.html",
+                           experiment_name=experiment_name,
                            sample_list=sample_list,
                            page_fig=fig_html,
                            info=info)
 
 
 
-if __name__ == '__main__':
-    app.run(port=8000,host="0.0.0.0",debug=True)
