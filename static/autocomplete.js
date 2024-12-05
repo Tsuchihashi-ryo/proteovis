@@ -95,6 +95,14 @@ function renderTags(fieldId) {
             <button class="ml-2 text-gray-500 hover:text-gray-700" onclick="removeTag('${fieldId}', ${index})">×</button>
         `;
         tagContainer.appendChild(tagElement);
+
+        const hiddenElement = document.createElement("input");
+        hiddenElement.className= 'bg-gray-200 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2 mb-2';
+        hiddenElement.type="hidden";
+        hiddenElement.id= `D${fieldId}_buffer_${index}`;
+        hiddenElement.name= `D${fieldId}_buffer_${index}`;
+        hiddenElement.value=`${tag.text} (${tag.number})`
+        tagContainer.appendChild(hiddenElement);
     });
 }
 
