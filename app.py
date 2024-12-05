@@ -365,27 +365,50 @@ def worksheet4akta(experiment_name,worksheet_name):
         data["program"] = program_df.to_dict(orient="index")
         worksheet_path = os.path.join(os.path.join(worksheet_dir,f"{worksheet_name}.json"))
         json_save(data,worksheet_path)
-        data = json.load(open(worksheet_path))
-        data_json_string = json.dumps(data,)
 
 
-        chart_data = {}
-        chart_data["rows"] = list(data["program"].values())
-        chart_data["cv"] = data["column_cv"]
-
-        chart_data_json_string = json.dumps(chart_data,)
-
-        worksheet = Worksheet(experiment_id=experiment_id,
-                              name=worksheet_name,
-                              type="AKTA")
+        if worksheet_path:
+            worksheet = Worksheet.query.filter_by(experiment_id=experiment_id,
+                                                  name=worksheet_name,
+                                                  type="AKTA").first()
         
-        db.session.add(worksheet)
+        else:
+
+            worksheet = Worksheet(experiment_id=experiment_id,
+                                  name=worksheet_name,
+                                  type="AKTA")
+
+            db.session.add(worksheet)
+            
         db.session.commit()
 
-        return render_template("worksheet4aktaview.html",
-                               data=data_json_string,
-                               chart_data=chart_data_json_string)
+        return redirect(url_for("main.worksheet4aktaview",
+                                experiment_name=experiment_name,
+                                worksheet_name=worksheet_name))
 
+
+@main.route("/experiment/<experiment_name>/worksheet4akta/<worksheet_name>/view", methods=["GET"])
+def worksheet4aktaview(experiment_name,worksheet_name):
+    exppath = ExperimentPath(header=current_app.config['UPLOAD_FOLDER'],
+                                experiment=experiment_name)
+    experiment_id = Experiment.query.filter_by(name=experiment_name).first().id
+
+    worksheet_dir = exppath.worksheet
+    worksheet_path = exppath.worksheets.get(worksheet_name)
+
+    data = json.load(open(worksheet_path))
+    data_json_string = json.dumps(data,)
+
+
+    chart_data = {}
+    chart_data["rows"] = list(data["program"].values())
+    chart_data["cv"] = data["column_cv"]
+
+    chart_data_json_string = json.dumps(chart_data,)
+
+    return render_template("worksheet4aktaview.html",
+                            data=data_json_string,
+                            chart_data=chart_data_json_string)
 
 
 
