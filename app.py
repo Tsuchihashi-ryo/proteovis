@@ -298,22 +298,39 @@ def worksheet4akta(experiment_name,worksheet_name):
     
     
     elif request.method == "POST":
+        key_list = list(request.form.keys())
+        buf_data = {"a1":[], "a2":[], "b1":[], "b2":[]}
+        for key in key_list:
+            if key[1:3] in list(buf_data.keys()):
+                raw_text = request.form.get(key)
+                buffer_name, buffer_conc = raw_text.replace(")", "").split(" (")
+                buf_data[key[1:3]].append(f"{buffer_name}:{buffer_conc} mM")
+        
+        buf_data_input = {"a1":"", "a2":"", "b1":"", "b2":""}
+        for ke, va in buf_data.items():
+            buf_data_input[ke] = ", ".join(va)
+        
+
         data = {
             "worksheet_name":request.form.get("worksheet-name"),
             "column_name": request.form.get("column-name"),
             "column_cv": request.form.get("column-cv"),
             "sample_loop_name": request.form.get("sample-loop-name"),
             "sample_loop_volume": request.form.get("sample-loop-volume"),
-            "buffer_a1": request.form.get("buffer-a1"),
+            #"buffer_a1": request.form.get("buffer-a1"),
+            "buffer_a1": buf_data_input["a1"],
             "number_a1": request.form.get("number-a1"),
             "a1_ph": request.form.get("a1-ph"),
-            "buffer_a2": request.form.get("buffer-a2"),
+            #"buffer_a2": request.form.get("buffer-a2"),
+            "buffer_a2": buf_data_input["a2"],
             "number_a2": request.form.get("number-a2"),
             "a2_ph": request.form.get("a2-ph"),
-            "buffer_b1": request.form.get("buffer-b1"),
+            #"buffer_b1": request.form.get("buffer-b1"),
+            "buffer_b1": buf_data_input["b1"],
             "number_b1": request.form.get("number-b1"),
             "b1_ph": request.form.get("b1-ph"),
-            "buffer_b2": request.form.get("buffer-b2"),
+            #"buffer_b2": request.form.get("buffer-b2"),
+            "buffer_b2": buf_data_input["b2"],
             "number_b2": request.form.get("number-b2"),
             "b2_ph": request.form.get("b2-ph"),
             "sample_pump_s1": request.form.get("sample-pump-s1"),
