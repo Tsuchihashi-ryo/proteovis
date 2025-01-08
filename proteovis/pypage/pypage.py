@@ -11,7 +11,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 from proteovis import graph
-from pyspectrum.spectrum import CorrectSpec
+from proteovis.pyspectrum.spectrum import CorrectSpec
 
 
 def detect_and_correct_tilt(image):
