@@ -12,15 +12,19 @@ def get_series_from_data(data, data_key_list,interpolate=True,lightweighting=10)
 
     data_series_list = []
     for data_key in data_key_list:
-        data_array = np.array(data[data_key]["data"])#.astype(float)
-        data_series = pd.Series(data=data_array[:, 1], index=data_array[:, 0].astype(float))
-        # remove duplicates
-        data_series = data_series[~data_series.index.duplicated()]
-        # offset by the infection_timestamp
+        if data.get(data_key):
+          data_array = np.array(data[data_key]["data"])#.astype(float)
+          data_series = pd.Series(data=data_array[:, 1], index=data_array[:, 0].astype(float))
+          # remove duplicates
+          data_series = data_series[~data_series.index.duplicated()]
+          # offset by the infection_timestamp
 
-        data_series.index -= inject_timestamp
+          data_series.index -= inject_timestamp
+        else:
+          data_series = pd.Series(data=[np.nan], index=[0])
 
         data_series_list.append(data_series)
+
 
     df = pd.concat(data_series_list, axis=1)
     df.columns = data_key_list
