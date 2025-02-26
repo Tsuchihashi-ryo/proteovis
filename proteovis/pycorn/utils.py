@@ -21,7 +21,7 @@ def get_series_from_data(data, data_key_list,interpolate=True,lightweighting=10)
 
           data_series.index -= inject_timestamp
         else:
-          data_series = pd.Series(data=[np.nan], index=[0])
+          data_series = pd.Series(data=["waste"], index=[0])
 
         data_series_list.append(data_series)
 
