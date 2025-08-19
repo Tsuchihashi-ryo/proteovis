@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    
+    <meta charset="shift-js">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1  minimum-scale=0.2">  <!-- 初期スケール -->
+    <script>
+    function adjustScale(containerWidth, minScale) {
+        const scale = Math.min(1.0, document.documentElement.clientWidth / containerWidth); // 1.0を超えないようにする
+        const newScale = Math.max(minScale, scale); //最小スケールを適用
+        document.querySelector('meta[name="viewport"]').content = `width=device-width, initial-scale=${newScale}`;
+    }
+    
+    window.addEventListener('DOMContentLoaded', () => {
+        adjustScale(1700, 0.2);
+    });
+    
+    window.addEventListener('resize', () => {
+        adjustScale(1700, 0.2);
+    });
+    </script>
+    <title>Data Viewer Prototype</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link type="text/css" rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            width: 1700px;
+            transform-origin: 0 0;
+            margin: 0;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 p-3 items-center justify-center max-h-fit">
+    <div id="loading" style="display:none;">
+        <img src="/static/loading.gif" alt="Loading...">
+      </div>
+    <div class="max-w-full mx-auto bg-white rounded-lg shadow-lg p-3 max-h-fit">
+        <div class="grid grid-cols-12 gap-6">
+            <!-- Left Panel -->
+            <div class="col-span-2 space-y-4" style="overflow-y: scroll;">
+                {% block left_panel %}
+                
+                {% endblock %}
+                
+            </div>
+            
+            <!-- Middle Panel (Data Viewer) -->
+            <div class="col-span-7 bg-blue-50 p-4 rounded-lg">
+                <div class="bg-white p-1 rounded-lg mb-1">
+                    {% block middle_panel %}
+                    {% endblock %}
+                </div>
+            </div>
+            
+            <!-- Right Panel (Analysis Panel) -->
+            <div class="col-span-3 bg-blue-50 p-4 rounded-lg">
+                    {% block right_panel %}
+                    {% endblock %}
+            </div>
+
+        </div>
+
+    </div>
+
+    <script>
+        const loadingButtons = document.querySelectorAll('button[type="submit"]');
+        loadingButtons.forEach(button => {
+            button.addEventListener('click', function() {
+              this.disabled = true;
+              document.getElementById('loading').style.display = 'flex';
+              button.closest('form').submit();
+              
+                });
+            });
+      </script>
+      <style>
+        #loading {
+          display: none; /* 最初は非表示 */
+          position: fixed; /* 画面全体を覆う */
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background-color: rgba(255, 255, 255, 0.7); /* 半透明の白 */
+          z-index: 9999; /* 他の要素の上に表示 */
+          display: flex;
+          justify-content: center; /* 水平方向の中央揃え */
+          align-items: center; /* 垂直方向の中央揃え */
+        }
+    </style>
+
+
+    {% block script_code %}
+    {% endblock %}
+
+
+</body>
+</html>

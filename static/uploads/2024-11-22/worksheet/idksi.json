@@ -1,0 +1,71 @@
+{
+  "worksheet_name": "kinoshita test",
+  "column_name": "Capto-Q impress",
+  "column_cv": 1.0,
+  "sample_loop_name": "pool plasma",
+  "sample_loop_volume": 3.0,
+  "buffer_a1": "HEPES:50 mM",
+  "number_a1": "",
+  "a1_ph": 7.0,
+  "buffer_a2": "",
+  "number_a2": "",
+  "a2_ph": "",
+  "buffer_b1": "HEPES:50 mM, NaCl:1000 mM",
+  "number_b1": "",
+  "b1_ph": 7.0,
+  "buffer_b2": "",
+  "number_b2": "",
+  "b2_ph": "",
+  "sample_pump_s1": "",
+  "sample_pump_buffer": "",
+  "program": {
+    "0": {
+      "rate": 1.0,
+      "length": 5.0,
+      "percentB": 0.0,
+      "slopeType": "step",
+      "path": "",
+      "fractionVol": 0.0
+    },
+    "1": {
+      "rate": 1.0,
+      "length": 2.0,
+      "percentB": 0.0,
+      "slopeType": "step",
+      "path": "sample loop",
+      "fractionVol": 0.0
+    },
+    "2": {
+      "rate": 1.0,
+      "length": 5.0,
+      "percentB": 0.0,
+      "slopeType": "step",
+      "path": "",
+      "fractionVol": 0.0
+    },
+    "3": {
+      "rate": 1.0,
+      "length": 20.0,
+      "percentB": 50.0,
+      "slopeType": "gradient",
+      "path": "",
+      "fractionVol": 1.0
+    },
+    "4": {
+      "rate": 1.0,
+      "length": 5.0,
+      "percentB": 100.0,
+      "slopeType": "step",
+      "path": "",
+      "fractionVol": 0.0
+    },
+    "5": {
+      "rate": 1.0,
+      "length": 3.0,
+      "percentB": 0.0,
+      "slopeType": "step",
+      "path": "",
+      "fractionVol": 0.0
+    }
+  }
+}

@@ -1,0 +1,218 @@
+{% extends "template4input.html" %}
+
+
+{% block left_panel %}
+    {{ super() }}
+{% endblock %}
+
+{% block middle_panel %}
+    {{page_fig | safe}}
+{% endblock %}
+
+{% block right_panel %}
+<h2 class="font-semibold mb-4">Set step name</h2>
+<div class="space-y-2 bg-white p-1 rounded-lg mb-1">
+    <form method="POST" enctype="multipart/form-data">
+        <table>
+            <thead>
+                <tr>
+                    <th>id</th>
+                    <th>Color</th>
+                    <th>Lane Name</th>
+                    <th>Group</th>
+                    <th>Subgroup</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for lane_data in lane_list %}
+                    <tr>
+                        <td><p>{{lane_data.index}}</p></td>
+                        <td><input id="color_{{lane_data.index}}" name="color" type="color" name="favorite_color" value="{{lane_data.color}}" class="color-picker"></td>  <!-- classを追加 -->
+                        <td>
+                            <input id="lane_{{lane_data.index}}" name="lane_name" type="text" value="{{lane_data.name}}" class="border rounded px-2 py-1 w-full">
+                            <ul name="suggestions" class="absolute z-10 w-full bg-white border border-gray-300 rounded-md mt-1 hidden"></ul>
+                        </td>
+                        <td><input id="lane_{{lane_data.group}}" name="lane_group" type="text" value="{{lane_data.group}}" class="border rounded px-2 py-1 w-full"></td>
+                        <td><input id="lane_{{lane_data.subgroup}}" name="lane_subgroup" type="text" value="{{lane_data.subgroup}}" class="border rounded px-2 py-1 w-full"></td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <div class="mt-6 text-right flex justify-between">
+            <button type="button" onclick="resetColors()" class="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition duration-300 text-sm">Reset Colors</button>
+            <button type="button" onclick="applyRainbow()" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition duration-300 text-sm">Apply Rainbow</button>
+            <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition duration-300">Save&Next</button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+
+{% block script_code %}
+<script>
+/*
+    //この部分にlene name をsuggetListから選択できるようにするスクリプトを描く
+    let suggestList = {{suggest_list | safe}};
+    const fractionInputs = document.getElementsByName("lane_name");
+    const suggestions1 = document.getElementsByName("suggestions");
+
+    Array.from(fractionInputs).forEach(input => {
+        input.addEventListener('input', function() {
+            const inputValue = this.value.toLowerCase();
+            const filteredSuggestions = suggestList.filter(item => {
+                const lowercaseItem = item.toLowerCase(); 
+                const suggestion = lowercaseItem.includes(inputValue);
+                return suggestion;
+            });
+            
+            Array.from(suggestions1).forEach(inputVal => {
+                updateSuggestions(inputVal, filteredSuggestions, input);
+            });
+            
+        });
+    });
+
+
+    function updateSuggestions(suggestionsElement, items, inputElement) {
+        suggestionsElement.innerHTML = '';
+        let suggestionSelected = false; // 候補リストからの選択状況を追跡するフラグ
+    
+        if (items.length === 0) {
+            suggestionsElement.classList.add('hidden');
+            return;
+        }
+    
+        items.forEach(item => {
+            const li = document.createElement('li');
+            li.textContent = item;
+            li.className = 'px-3 py-1 hover:bg-gray-100 cursor-pointer';
+            li.setAttribute("role", "option");
+            li.addEventListener('click', () => {
+                inputElement.value = item;
+                suggestionSelected = true; // 候補が選択された場合、フラグを立てる
+                suggestionsElement.classList.add('hidden');
+            });
+            suggestionsElement.appendChild(li);
+        });
+    
+        suggestionsElement.classList.remove('hidden');
+    
+        // 候補が選択されなかった場合に、入力欄をクリアするイベントリスナーを追加
+        inputElement.addEventListener('blur', function() {
+            if (!suggestionSelected) {
+                this.value = ''; // 候補が選択されなかった場合、入力欄をクリア
+            }
+            //suggestionsElement.classList.add('hidden'); 
+            suggestionSelected = false; //次の使用のためにフラグをリセットします。
+        }, { once: true }); //一度だけ実行するようにします。
+    }
+    
+*/
+let suggestList = {{suggest_list | safe}}; // FlaskからJSONデータを受け取る
+
+const laneNameInputs = document.querySelectorAll('input[name="lane_name"]');
+
+laneNameInputs.forEach(input => {
+  const suggestionsUl = input.nextElementSibling;
+
+  input.addEventListener('input', () => {
+    const searchTerm = input.value.toLowerCase();
+    suggestionsUl.innerHTML = ''; // 前回のサジェストをクリア
+    suggestionsUl.classList.remove('hidden'); // サジェストリストを表示
+
+    if (searchTerm.length === 0) {
+      suggestionsUl.classList.add('hidden'); // 入力がない場合は非表示
+      return;
+    }
+
+    // suggestListは全てのレーンで共通
+    const filteredSuggestions = suggestList.filter(suggestion =>
+      suggestion.toLowerCase().includes(searchTerm)
+    );
+
+    filteredSuggestions.forEach(suggestion => {
+      const li = document.createElement('li');
+      li.textContent = suggestion;
+      li.addEventListener('click', () => {
+        input.value = suggestion;
+        suggestionsUl.classList.add('hidden'); // クリックしたらサジェストリストを非表示
+      });
+      suggestionsUl.appendChild(li);
+    });
+
+    // サジェストリストが空の場合は非表示
+    if (suggestionsUl.children.length === 0) {
+      suggestionsUl.classList.add('hidden');
+    }
+  });
+
+  //入力欄の外をクリックしたらサジェストを非表示にする
+  document.addEventListener('click', (event) => {
+    if (!input.contains(event.target) && !suggestionsUl.contains(event.target)) {
+      suggestionsUl.classList.add('hidden');
+    }
+  });
+});
+
+
+
+    function resetColors() {
+        const colorPickers = document.querySelectorAll('.color-picker');
+        colorPickers.forEach(input => {
+            input.value = '#FFFFFF';
+        });
+    }
+    
+    function applyRainbow() {
+        const colorPickers = document.querySelectorAll('.color-picker');
+        const numPickers = colorPickers.length;
+    
+        for (let i = 0; i < numPickers; i++) {
+            const hue = Math.round((i / numPickers) * 360); // 0～360度の色相を生成
+            const saturation = 100; // 彩度（パーセント）
+            const lightness = 50;  // 明度（パーセント）
+            const rgb = hslToRgb(hue, saturation, lightness); // HSVからRGBに変換
+            colorPickers[i].value = rgbToHex(rgb); // RGBを16進数に変換
+        }
+    }
+    
+    function hslToRgb(h, s, l){
+        s /= 100;
+        l /= 100;
+    
+        let c = (1 - Math.abs(2 * l - 1)) * s,
+            x = c * (1 - Math.abs((h / 60) % 2 - 1)),
+            m = l - c / 2,
+            r, g, b;
+    
+        if (0 <= h && h < 60) {
+            r = c; g = x; b = 0;
+        } else if (60 <= h && h < 120) {
+            r = x; g = c; b = 0;
+        } else if (120 <= h && h < 180) {
+            r = 0; g = c; b = x;
+        } else if (180 <= h && h < 240) {
+            r = 0; g = x; b = c;
+        } else if (240 <= h && h < 300) {
+            r = x; g = 0; b = c;
+        } else {
+            r = c; g = 0; b = x;
+        }
+    
+        r = Math.round(255 * (r + m));
+        g = Math.round(255 * (g + m));
+        b = Math.round(255 * (b + m));
+    
+        return [r, g, b];
+    }
+    
+    function rgbToHex(rgb) {
+        return "#" + rgb.map(x => {
+            const hex = x.toString(16);
+            return hex.length === 1 ? "0" + hex : hex;
+        }).join("");
+    }
+    
+</script>
+{% endblock %}

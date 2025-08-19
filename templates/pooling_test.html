@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="shift-js">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Viewer Prototype</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    {% block script_code %}
+    {% endblock %}
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 p-3 items-center justify-center max-h-fit">
+    <div class="max-w-fill mx-auto bg-white rounded-lg shadow-lg p-3 max-h-fit">
+        <div class="grid grid-cols-12 gap-6">
+            <!-- Left Panel -->
+            <div class="col-span-2 space-y-4">
+                {% block left_panel %}
+                <button class="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition duration-300">Add files</button>
+                {% endblock %}
+                
+            </div>
+            
+            <!-- Middle Panel (Data Viewer) -->
+            <div class="col-span-7 bg-blue-50 p-4 rounded-lg">
+                <div class="bg-white p-1 rounded-lg mb-1">
+                    {% block middle_panel %}
+                    {% endblock %}
+                </div>
+            </div>
+            
+            <!-- Right Panel (Analysis Panel) -->
+            <div class="col-span-3 bg-blue-50 p-4 rounded-lg">
+                <h2 class="font-semibold mb-4"></h2>
+                {% block right_panel %}
+                <h2 class="font-semibold mb-4">Fraction pooling</h2>
+                    <div><!--select pooling fraction panlel-->
+                    <div><!--input region-->
+                        <h3 class="text-xs font-medium mb-2">Select fractions</h3>
+                        <input type="text" placeholder="fraction name" id="fractionInput" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs">
+                    </div>
+
+                    <!--display selected fraction as small buttons-->
+                    <div id="fractionButtons" class="flex flex-wrap gap-2">
+                    </div>
+
+                    <h3 class="text-xs font-medium mb-2">New name</h3>
+                    <button class="w-full bg-blue-500 text-white py-2 px-4 rounded-lg text-xs hover:bg-blue-600 transition duration-300">pooling</button>
+                    </div>
+                {% endblock %}
+            </div>
+
+        </div>
+
+    </div>
+
+    <script type="module">
+        // Main Chart
+        const mainCtx = document.getElementById('mainChart').getContext('2d');
+        new Chart(mainCtx, {
+            type: 'line',
+            data: {
+                labels: Array.from({length: 100}, (_, i) => i),
+                datasets: [{
+                    label: 'UV280 (mAU)',
+                    data: Array.from({length: 100}, () => Math.random() * 100),
+                    borderColor: 'rgb(75, 192, 192)',
+                    tension: 0.1
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Data Viewer'
+                    }
+                },
+                scales: {
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Elution (mL)'
+                        }
+                    },
+                    y: {
+                        title: {
+                            display: true,
+                            text: 'UV280 (mAU)'
+                        }
+                    }
+                }
+            }
+        });
+
+        // Mini Chart
+        const miniCtx = document.getElementById('miniChart').getContext('2d');
+        new Chart(miniCtx, {
+            type: 'line',
+            data: {
+                labels: Array.from({length: 20}, (_, i) => i),
+                datasets: [{
+                    data: Array.from({length: 20}, () => Math.random() * 100),
+                    borderColor: 'rgb(75, 192, 192)',
+                    tension: 0.1
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    x: {
+                        display: false
+                    },
+                    y: {
+                        display: false
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>

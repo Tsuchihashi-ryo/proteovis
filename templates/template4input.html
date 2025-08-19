@@ -1,0 +1,36 @@
+{% extends "template.html" %}
+
+{% block script_code %}
+<script>
+    document.getElementById('file').addEventListener('change', function() {
+        document.getElementById('uploadForm').submit();
+    });
+</script>
+{% endblock %}
+
+{% block left_panel %}
+    {% for sample in sample_list %}
+    <form method="GET" action="/experiment/{{sample.experiment}}/{{sample.data_type}}/{{sample.name}}/show">
+        <button type="submit" class="bg-blue-100 p-4 rounded-lg">
+            <img src="{{url_for('static', filename=sample.icon)}}" >
+            <p class="text-sm font-medium">File: {{sample.name}}</p>
+            <p class="text-sm">Type: {{sample.data_type}}</p>
+        </button>
+    </form>
+    {% endfor %}
+
+    <form method="POST" action="/experiment/{{experiment_name}}/upload" enctype="multipart/form-data" id="uploadForm">
+        <label class="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition duration-300" style="cursor:pointer;">
+            Add File
+          <input type="file" id="file" name="file" style="display: none">
+        </label>
+    </form>
+{% endblock %}
+
+
+{% block middle_panel %}
+{% endblock %}
+
+
+{% block right_panel %}
+{% endblock %}

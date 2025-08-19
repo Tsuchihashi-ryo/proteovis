@@ -1,0 +1,139 @@
+{% extends "template4input.html" %}
+
+
+
+{% block left_panel %}
+    {{ super() }}
+{% endblock %}
+
+{% block middle_panel %}
+{{akta_fig | safe}}
+</br>
+<p>if y not equal UV 280nm, please hide fraction/phase annotation.(not work autoscale)</p>
+{% endblock %}
+
+{% block right_panel %}
+<div class="mt-6 text-right flex justify-between">
+    <h2 class="font-semibold mb-4">Set step fraction</h2>
+    <form method="get" action="/reload_pool">
+        <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition duration-300 text-sm">Reload Pool</button>
+    </form>
+</div>
+<div class="space-y-2 bg-white p-1 rounded-lg mb-1" >
+    <form method="POST" enctype="multipart/form-data">
+        <div style="overflow-y: scroll; height: 30rem;">
+        <table>
+            <thead>
+                <tr>
+                    <th>Show</th>
+                    <th>Color</th>
+                    <th>Fraction Name</th>
+                    <th align="left">pooling</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for fraction in fraction_list %}
+                    <tr>
+                        {% if fraction.show %}
+                            <td><input id="show_{{fraction.index}}" name="show" type="checkbox" value="{{fraction.index}}" class="border rounded px-2 py-1" checked></td>
+                        {% else %}
+                            <td><input id="show_{{fraction.index}}" name="show" type="checkbox" value="{{fraction.index}}" class="border rounded px-2 py-1" ></td>
+                        {% endif %}
+                        <td><input id="color_{{fraction.index}}" name="color" type="color" name="favorite_color" value="{{fraction.color}}" class="color-picker"></td>  <!-- classを追加 -->
+                        <td><input id="fraction_name_{{fraction.index}}" name="fraction_name" type="text" value="{{fraction.name}}" class="border rounded px-2 py-1 w-full" style="width: 10rem"></td>
+                        <td><p id="pooling_{{fraction.index}}" name="pooling" type="text" value="{{fraction.pool}}" class="border rounded px-2 py-1 w-full justify-start">{{fraction.pool}}</p></td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table></div>
+
+        <div class="mt-6 text-right flex justify-between">
+            <button type="button" onclick="checkAll()" class="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition duration-300 text-sm">checkAll</button>
+            <button type="button" onclick="uncheckAll()" class="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition duration-300 text-sm">uncheckAll</button>
+            <button type="button" onclick="resetColors()" class="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition duration-300 text-sm">Reset Colors</button>
+            <button type="button" onclick="applyRainbow()" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition duration-300 text-sm">Apply Rainbow</button>
+        </div>
+        <div class="mt-6 text-right flex justify-between">
+            <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition duration-300">Save&Next</button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+
+{% block script_code %}
+<script>
+    function checkAll() {
+            const checkboxes = document.querySelectorAll('input[name="show"]');
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = true;
+            });
+    }
+
+    function uncheckAll() {
+            const checkboxes = document.querySelectorAll('input[name="show"]');
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = false;
+            });
+    }
+
+
+    function resetColors() {
+        const colorPickers = document.querySelectorAll('.color-picker');
+        colorPickers.forEach(input => {
+            input.value = '#FFFFFF';
+        });
+    }
+    
+    function applyRainbow() {
+        const colorPickers = document.querySelectorAll('.color-picker');
+        const numPickers = colorPickers.length;
+    
+        for (let i = 0; i < numPickers; i++) {
+            const hue = Math.round((i / numPickers) * 360); // 0～360度の色相を生成
+            const saturation = 100; // 彩度（パーセント）
+            const lightness = 50;  // 明度（パーセント）
+            const rgb = hslToRgb(hue, saturation, lightness); // HSVからRGBに変換
+            colorPickers[i].value = rgbToHex(rgb); // RGBを16進数に変換
+        }
+    }
+    
+    function hslToRgb(h, s, l){
+        s /= 100;
+        l /= 100;
+    
+        let c = (1 - Math.abs(2 * l - 1)) * s,
+            x = c * (1 - Math.abs((h / 60) % 2 - 1)),
+            m = l - c / 2,
+            r, g, b;
+    
+        if (0 <= h && h < 60) {
+            r = c; g = x; b = 0;
+        } else if (60 <= h && h < 120) {
+            r = x; g = c; b = 0;
+        } else if (120 <= h && h < 180) {
+            r = 0; g = c; b = x;
+        } else if (180 <= h && h < 240) {
+            r = 0; g = x; b = c;
+        } else if (240 <= h && h < 300) {
+            r = x; g = 0; b = c;
+        } else {
+            r = c; g = 0; b = x;
+        }
+    
+        r = Math.round(255 * (r + m));
+        g = Math.round(255 * (g + m));
+        b = Math.round(255 * (b + m));
+    
+        return [r, g, b];
+    }
+    
+    function rgbToHex(rgb) {
+        return "#" + rgb.map(x => {
+            const hex = x.toString(16);
+            return hex.length === 1 ? "0" + hex : hex;
+        }).join("");
+    }
+    
+</script>
+{% endblock %}
