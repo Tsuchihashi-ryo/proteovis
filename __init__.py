@@ -13,20 +13,16 @@ import os
 def create_app():
     app = Flask(__name__,static_folder='./static', static_url_path='/static')
 
-    app.secret_key = b'hogehogefugafuga'
-    app.jinja_env.auto_reload = True
+    # Load configuration from environment variables
+    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'a-hard-to-guess-string')
+    app.config['GCS_BUCKET_NAME'] = os.environ.get('GCS_BUCKET_NAME')
 
-    UPLOAD_FOLDER = './static/uploads'
-    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-
-
-    app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-
-
-    basedir = os.path.abspath(os.path.dirname(__file__))
-
-    app.config['SQLALCHEMY_DATABASE_URI'] ='sqlite:///' + os.path.join(basedir, 'database.db')
+    # Use DATABASE_URL from environment variable, with a fallback to local SQLite
+    default_db_uri = 'sqlite:///' + os.path.join(os.path.abspath(os.path.dirname(__file__)), 'database.db')
+    app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', default_db_uri)
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+    app.jinja_env.auto_reload = True
 
     db.init_app(app)
 
@@ -117,8 +113,3 @@ def create_app():
     app.register_blueprint(main_blueprint)
 
     return app
-
-
-if __name__ == '__main__':
-    app = create_app()
-    app.run(port=8000,host="0.0.0.0",debug=True)

@@ -13,3 +13,8 @@ Flask-SQLAlchemy
 flask-login
 Flask-WTF
 email_validator
+gunicorn
+google-cloud-storage
+psycopg2-binary
+SQLAlchemy[postgresql]
+kaleido

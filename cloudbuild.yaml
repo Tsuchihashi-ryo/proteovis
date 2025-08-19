@@ -1,0 +1,60 @@
+steps:
+# Step 1: Build the container image
+- name: 'gcr.io/cloud-builders/docker'
+  args: [
+    'build',
+    '-t', '$_REGION-docker.pkg.dev/$PROJECT_ID/$_SERVICE_NAME/$_SERVICE_NAME:latest',
+    '.'
+  ]
+
+# Step 2: Push the container image to Artifact Registry
+- name: 'gcr.io/cloud-builders/docker'
+  args: [
+    'push',
+    '$_REGION-docker.pkg.dev/$PROJECT_ID/$_SERVICE_NAME/$_SERVICE_NAME:latest'
+  ]
+
+# Step 3: Deploy container image to Cloud Run
+- name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+  entrypoint: gcloud
+  args: [
+    'run', 'deploy', '$_SERVICE_NAME',
+    '--image', '$_REGION-docker.pkg.dev/$PROJECT_ID/$_SERVICE_NAME/$_SERVICE_NAME:latest',
+    '--region', '$_REGION',
+    '--platform', 'managed',
+    '--quiet',
+    # --- The following flags need to be configured by the user ---
+    # Set the Cloud SQL connection
+    '--add-cloudsql-instances', 'INSTANCE_CONNECTION_NAME', # e.g., 'your-project:your-region:your-instance'
+    # Set environment variables for the service
+    '--update-env-vars', '^#^DATABASE_URL=postgresql+psycopg2://USER:PASSWORD@/DB_NAME?host=/cloudsql/INSTANCE_CONNECTION_NAME#GCS_BUCKET_NAME=your-gcs-bucket-name#SECRET_KEY=your-super-secret-key'
+    # By default, allows unauthenticated access. Change to --no-allow-unauthenticated for private services.
+    # '--allow-unauthenticated'
+  ]
+
+# Store the built image in Artifact Registry
+images:
+- '$_REGION-docker.pkg.dev/$PROJECT_ID/$_SERVICE_NAME/$_SERVICE_NAME:latest'
+
+# --- User Configuration ---
+# To run this build, use the command:
+# gcloud builds submit --config cloudbuild.yaml --substitutions=_SERVICE_NAME=my-proteovis-app,_REGION=us-central1
+#
+# Required substitutions:
+# _SERVICE_NAME: The name of your Cloud Run service.
+# _REGION: The GCP region for your Cloud Run service and Artifact Registry.
+#
+# You also need to manually update the following in the 'args' section above:
+# - INSTANCE_CONNECTION_NAME: The full connection name of your Cloud SQL instance.
+# - DATABASE_URL: The full database connection string, including user, password, and database name.
+# - GCS_BUCKET_NAME: The name of your Google Cloud Storage bucket.
+# - SECRET_KEY: A secret key for Flask sessions.
+#
+# Before running, ensure you have enabled the Cloud Build, Cloud Run, Artifact Registry, and Cloud SQL Admin APIs.
+# Also ensure the Cloud Build service account has the necessary IAM roles (e.g., Cloud Run Admin, Service Account User on the Cloud Run runtime service account).
+# You may need to create an Artifact Registry repository for Docker images first.
+# gcloud artifacts repositories create $_SERVICE_NAME --repository-format=docker --location=$_REGION
+#
+substitutions:
+  _SERVICE_NAME: 'proteovis-app'
+  _REGION: 'us-central1'

@@ -4,11 +4,14 @@ import proteovis as pv
 import plotly.io as pio
 import pandas as pd
 import json
+import gcs_utils
+from flask import current_app
+from io import BytesIO
 
 
-def get_akta_data(path):
-
-        akta_data = pv.pycorn.load_uni_zip(path)
+def get_akta_data(bucket_name, path):
+        file_obj = gcs_utils.download_blob_to_file_object(bucket_name, path)
+        akta_data = pv.pycorn.load_uni_zip(file_obj)
         
         akta_columns = list(akta_data.keys())
 
@@ -29,14 +32,16 @@ def get_akta_data(path):
         return akta_df,frac_df,phase_df,akta_fig
 
 
-def get_page_image(path,lane_width=44,margin=0.2):
-        page = pv.pypage.PageImage(path,lane_width=lane_width,margin=margin)
+def get_page_image(bucket_name, path, lane_width=44, margin=0.2):
+        image_obj = gcs_utils.download_blob_to_file_object(bucket_name, path)
+        page = pv.pypage.PageImage(image_obj, lane_width=lane_width, margin=margin)
         page_fig = page.check_image()
         return page_fig
 
 
-def get_page_lane_ids(path,lane_width=44,margin=0.2):
-        page = pv.pypage.PageImage(path,lane_width=lane_width,margin=margin)
+def get_page_lane_ids(bucket_name, path, lane_width=44, margin=0.2):
+        image_obj = gcs_utils.download_blob_to_file_object(bucket_name, path)
+        page = pv.pypage.PageImage(image_obj, lane_width=lane_width, margin=margin)
         return list(range(len(page.lanes)))
 
 
@@ -58,248 +63,221 @@ def get_samples(exppath):
     return sample_list
 
 
-def get_akta_fig(dir,first="UV 1_280",origin=False):
-    akta_path = os.path.join(dir, f"all_data.csv")
-    frac_path = os.path.join(dir, f"fraction.csv")
-    show_path = os.path.join(dir, f"show.csv")
-    phase_path = os.path.join(dir, f"phase.csv")
+def get_akta_fig(bucket_name, dir_prefix, first="UV 1_280", origin=False):
+    akta_path = f"{dir_prefix}/all_data.csv"
+    frac_path = f"{dir_prefix}/fraction.csv"
+    show_path = f"{dir_prefix}/show.csv"
+    phase_path = f"{dir_prefix}/phase.csv"
 
-    akta_df = pd.read_csv(akta_path,index_col=0)
-    if os.path.exists(show_path) & (not origin):
-           frac_df = pd.read_csv(show_path,index_col=0)
-           frac_df["Fraction_Start"] = frac_df["Name"]
-           annotations = frac_df[frac_df["Show"]]["Fraction_Start"].values.tolist()
+    akta_df = gcs_utils.gcs_csv_to_dataframe(bucket_name, akta_path)
+    if gcs_utils.blob_exists(bucket_name, show_path) and not origin:
+        frac_df = gcs_utils.gcs_csv_to_dataframe(bucket_name, show_path)
+        frac_df["Fraction_Start"] = frac_df["Name"]
+        annotations = frac_df[frac_df["Show"]]["Fraction_Start"].values.tolist()
     else:
-           frac_df = pd.read_csv(frac_path,index_col=0)
-           annotations = frac_df["Fraction_Start"].values.tolist()
+        frac_df = gcs_utils.gcs_csv_to_dataframe(bucket_name, frac_path)
+        annotations = frac_df["Fraction_Start"].values.tolist()
 
-    phase_df = pd.read_csv(phase_path,index_col=0).fillna("")
+    phase_df = gcs_utils.gcs_csv_to_dataframe(bucket_name, phase_path).fillna("")
 
-    fig = pv.graph.unicorn_ploty_graph(akta_df,first=first)
+    fig = pv.graph.unicorn_ploty_graph(akta_df, first=first)
+    fig, use_color_palette = pv.graph.annotate_fraction(fig, frac_df, phase_df, annotations=annotations)
 
-    fig,use_color_palette = pv.graph.annotate_fraction(fig,frac_df,phase_df,annotations=annotations)
-
-    return fig2html(fig,name="akta")
-
-
-def get_page_fig(image_path,lane_width=50,margin=0.2):
-    fig = get_page_image(image_path,lane_width=int(lane_width),margin=float(margin))
-
-    return fig2html(fig,name="page")
+    return fig2html(fig, name="akta")
 
 
-
-def get_phase_data(dir):
-        phase_path = os.path.join(dir, f"phase.csv")
-        phase_df = pd.read_csv(phase_path,index_col=0)
-        phase_df = phase_df.fillna("")
-
-        phase_data = []
-
-        for index, row in phase_df.iterrows():
-                phase_data.append(
-                        {"index": index,
-                        "phase": row["Phase"],
-                        "color": row["Color_code"]}
-                )
-
-        return phase_data
-
-def get_phase_df(dir):
-        phase_path = os.path.join(dir, f"phase.csv")
-        return pd.read_csv(phase_path,index_col=0)
+def get_page_fig(bucket_name, image_path, lane_width=50, margin=0.2):
+    fig = get_page_image(bucket_name, image_path, lane_width=int(lane_width), margin=float(margin))
+    return fig2html(fig, name="page")
 
 
-def get_frac_data(dir):
-        frac_df = get_frac_df(dir)
-        fraction_list = frac_df["Fraction_Start"].to_list()
+def get_phase_data(bucket_name, dir_prefix):
+    phase_path = f"{dir_prefix}/phase.csv"
+    phase_df = gcs_utils.gcs_csv_to_dataframe(bucket_name, phase_path).fillna("")
+    phase_data = []
+    for index, row in phase_df.iterrows():
+        phase_data.append({
+            "index": index,
+            "phase": row["Phase"],
+            "color": row["Color_code"]
+        })
+    return phase_data
 
-        return fraction_list
+def get_phase_df(bucket_name, dir_prefix):
+    phase_path = f"{dir_prefix}/phase.csv"
+    return gcs_utils.gcs_csv_to_dataframe(bucket_name, phase_path)
 
-def get_frac_df(dir,data=None):
-        if not data:
-                frac_path = os.path.join(dir, f"fraction.csv")
-        elif data=="show":
-                frac_path = os.path.join(dir, f"show.csv")
-        else:NameError
-        frac_df = pd.read_csv(frac_path,index_col=0).fillna("")
-        return frac_df
+
+def get_frac_data(bucket_name, dir_prefix):
+    frac_df = get_frac_df(bucket_name, dir_prefix)
+    return frac_df["Fraction_Start"].to_list()
+
+def get_frac_df(bucket_name, dir_prefix, data=None):
+    if not data:
+        frac_path = f"{dir_prefix}/fraction.csv"
+    elif data == "show":
+        frac_path = f"{dir_prefix}/show.csv"
+    else:
+        raise NameError("Invalid data type for get_frac_df")
+    return gcs_utils.gcs_csv_to_dataframe(bucket_name, frac_path).fillna("")
+
+
+def get_page_config(bucket_name, dir_prefix):
+    config_file = f"{dir_prefix}/config.json"
+    json_string = gcs_utils.download_blob_as_string(bucket_name, config_file)
+    return json.loads(json_string)
 
 
 
-def get_page_config(dir):
-    config_file = os.path.join(dir,"config.json").replace("\\","/")
-    config = json.load(open(config_file))
+def marker_check(bucket_name, dir_prefix, image_path, lane_id):
+    config = get_page_config(bucket_name, dir_prefix)
+    image_obj = gcs_utils.download_blob_to_file_object(bucket_name, image_path)
+    page = pv.pypage.PageImage(image_obj,
+                              lane_width=int(config["lane_width"]),
+                              margin=float(config["margin"]))
 
-    return config
+    marker = page.get_lane(index=lane_id, start=0).astype(float)
+    marker = pv.pypage.Marker(marker)
 
+    fig = marker.check()
+    fig.update_layout(width=200, height=500)
+    fig_html = pio.to_html(fig, full_html=False)
 
-
-def marker_check(dir,image_path,lane_id):
-        
-        config = get_page_config(dir)
-        page = pv.pypage.PageImage(image_path,
-                                        lane_width=int(config["lane_width"]),
-                                        margin=float(config["margin"]))
-
-        marker = page.get_lane(index=lane_id,start=0).astype(float)
-        marker = pv.pypage.Marker(marker)
-
-        fig = marker.check()
-
-        fig.update_layout(
-        width=200,
-        height=500
-        )
-
-        fig_html = pio.to_html(fig,full_html=False)
-
-        return fig_html,marker.peak_index
+    return fig_html, marker.peak_index
 
 
-def make_page_df(dir,image_path):
-        config = get_page_config(dir)
-        page = pv.pypage.PageImage(image_path,
-                                        lane_width=int(config["lane_width"]),
-                                        margin=float(config["margin"]))
-        return page.get_df()
-
+def make_page_df(bucket_name, dir_prefix, image_path):
+    config = get_page_config(bucket_name, dir_prefix)
+    image_obj = gcs_utils.download_blob_to_file_object(bucket_name, image_path)
+    page = pv.pypage.PageImage(image_obj,
+                              lane_width=int(config["lane_width"]),
+                              margin=float(config["margin"]))
+    return page.get_df()
 
 
 class ExperimentPath:
-      def __init__(self,header,experiment):
-            self.experiment = os.path.join(header, experiment)
-            self.experiment_name = experiment
-            self.analysis = os.path.join(self.experiment, "analysis")
-            self.raw = os.path.join(self.experiment, "raw_data")
-            self.worksheet = os.path.join(self.experiment, "worksheet")
-            self.data = {}
-            self.worksheets = {}
+    def __init__(self, bucket_name, experiment_name):
+        self.bucket_name = bucket_name
+        self.experiment_name = experiment_name
+        self.experiment_prefix = experiment_name
+        self.analysis_prefix = f"{self.experiment_prefix}/analysis"
+        self.raw_prefix = f"{self.experiment_prefix}/raw_data"
+        self.worksheet_prefix = f"{self.experiment_prefix}/worksheet"
+        self.data = {}
+        self.worksheets = {}
+
+        # In GCS, "folders" are just prefixes. We list the "subdirectories" of analysis.
+        data_folders = gcs_utils.list_directories(self.bucket_name, self.analysis_prefix)
+
+        # List json files in the worksheet directory
+        worksheet_files = gcs_utils.list_blobs_with_prefix(self.bucket_name, prefix=self.worksheet_prefix)
+        worksheet_datas = [w for w in worksheet_files if w.endswith('.json')]
 
 
-            data_folders = glob(f"{self.analysis}/*")
-            worksheet_datas = glob(f"{self.worksheet}/*")
-
-            for folder in data_folders:
-                name = os.path.basename(folder.replace("\\","/"))
-                
-                file_type_binary = os.path.exists(os.path.join(folder,"all_data.csv"))
-                if file_type_binary:
-                        data_type = "AKTA"
-                else:
-                        data_type = "PAGE"
-                
-                self.data[name] = DataPath(self.experiment,self.experiment_name,name,data_type=data_type)
+        for name in data_folders:
+            # The name is just the subdirectory name, not the full path
+            run_analysis_prefix = f"{self.analysis_prefix}/{name}"
             
-            for worksheet in worksheet_datas:
-                name = os.path.basename(worksheet)[:-5]
-                print(name)
-                self.worksheets[name] = os.path.join(self.worksheet,
-                                                     f"{name}.json"
-                                                     ).replace("\\","/")
+            # Check if a specific file exists to determine the type
+            is_akta = gcs_utils.blob_exists(self.bucket_name, f"{run_analysis_prefix}/all_data.csv")
+            data_type = "AKTA" if is_akta else "PAGE"
 
+            self.data[name] = DataPath(self, name, data_type)
+
+        for worksheet_path in worksheet_datas:
+            name = os.path.basename(worksheet_path).replace('.json', '')
+            self.worksheets[name] = worksheet_path
 
 
 class DataPath:
-        def __init__(self,experiment,experiment_name,name,data_type):
-                self.experiment = experiment
-                self.experiment_name = experiment_name
-                self.analysis = os.path.join(experiment, "analysis", name)
-                self.name = name
-                self.data_type = data_type
-
-                if data_type == "AKTA":
-                        self.file_type = "zip"
-                        self.fraction = os.path.join(self.analysis, "fraction.csv")
-                        self.all_data = os.path.join(self.analysis, "all_data.csv")
-                        self.phase = os.path.join(self.analysis, "phase.csv")
-                        self.pool = os.path.join(self.analysis, "pool.json").replace("\\","/")
-                        self.show = os.path.join(self.analysis, "show.csv")
-                        self.config = os.path.join(self.analysis, "config.json").replace("\\","/")
-                else:
-                        self.file_type = "PAGE"
-                        self.config = os.path.join(self.analysis, "config.json").replace("\\","/")
-                        self.annotation = os.path.join(self.analysis, "annotation.csv")
-                        
-                        config = json.load(open(self.config))
-                        ext = config['ext']
-                        self.raw = os.path.join(self.experiment, "raw_data",f"{name}{ext}")
-                self.icon = "/".join(os.path.join(self.analysis, "icon.png").replace("\\","/").split("/")[2:])
-
-
-def json_save(dict,path):
-       with open(path, 'wt') as f:
-        json.dump(dict, f, indent=2, ensure_ascii=False)
-
-
-def show_page_full(image_path,config,df=None):
-        df = df.fillna("")
-
-        lane_width = int(config["lane_width"])
-        margin = float(config["margin"])
-
-        page = pv.pypage.PageImage(image_path,lane_width=lane_width,margin=margin)
-
-        page.annotate_lanes(df["Name"].values.tolist())
-        page.palette = df["Color_code"].values.tolist()
-
-        palette = {}
-
+    def __init__(self, experiment_path, run_name, data_type):
+        self.exp_path = experiment_path
+        self.run_name = run_name
+        self.data_type = data_type
         
+        self.analysis_prefix = f"{self.exp_path.analysis_prefix}/{self.run_name}"
 
-        marker = page.get_lane(index=int(config["marker"]["id"]),start=0).astype(float)
-        marker = pv.pypage.Marker(marker)
-        marker.annotate(config["marker"]["annotate"])
-        
+        if data_type == "AKTA":
+            self.file_type = "zip"
+            self.fraction = f"{self.analysis_prefix}/fraction.csv"
+            self.all_data = f"{self.analysis_prefix}/all_data.csv"
+            self.phase = f"{self.analysis_prefix}/phase.csv"
+            self.pool = f"{self.analysis_prefix}/pool.json"
+            self.show = f"{self.analysis_prefix}/show.csv"
+            self.config = f"{self.analysis_prefix}/config.json"
+        else: # PAGE
+            self.file_type = "PAGE"
+            self.config = f"{self.analysis_prefix}/config.json"
+            self.annotation = f"{self.analysis_prefix}/annotation.csv"
 
-        if df is df:
-               fig = page.annotated_imshow(palette,rectangle=True)
-        
-        else:
-               fig = page.check_image()
+            config_str = gcs_utils.download_blob_as_string(self.exp_path.bucket_name, self.config)
+            config = json.loads(config_str)
+            ext = config.get('ext', '') # Use .get for safety
+            self.raw = f"{self.exp_path.raw_prefix}/{self.run_name}{ext}"
 
-        fig = pv.pypage.write_marker(fig,marker)
-
-
-
-        return fig2html(fig,name="page")
-
-
-def fig2html(fig,name="image"):
-        fig.update_layout(
-                width=900,
-                height=600
-        )
-
-        config = {
-                'toImageButtonOptions': {
-                'format': 'svg', # one of png, svg, jpeg, webp
-                'filename': name,
-                'width': 900,
-                'height': 600,
-                'scale': 1 # Multiply title/legend/axis/canvas sizes by this factor
-                }
-                }
-
-        fig_html = pio.to_html(fig,full_html=False,config=config)
-
-        return fig_html
+        # The icon path is relative to the bucket root
+        self.icon = f"{self.analysis_prefix}/icon.png"
 
 
-def get_page_fig4annotate(image_path,config,df):
-        lane_width = int(config["lane_width"])
-        margin = float(config["margin"])
+def json_save(bucket_name, data_dict, blob_path):
+    json_string = json.dumps(data_dict, indent=2, ensure_ascii=False)
+    gcs_utils.upload_blob_from_string(bucket_name, json_string, blob_path, 'application/json')
 
-        page = pv.pypage.PageImage(image_path,lane_width=lane_width,margin=margin)
 
-        page.annotate_lanes(df["Name"].values.tolist())
-        page.palette = df["Color_code"].values.tolist()
+def show_page_full(bucket_name, image_path, config, df=None):
+    df = df.fillna("")
+    lane_width = int(config["lane_width"])
+    margin = float(config["margin"])
 
-        palette = {}
+    image_obj = gcs_utils.download_blob_to_file_object(bucket_name, image_path)
+    page = pv.pypage.PageImage(image_obj, lane_width=lane_width, margin=margin)
 
-        fig = page.annotated_imshow(palette,rectangle=True)
+    page.annotate_lanes(df["Name"].values.tolist())
+    page.palette = df["Color_code"].values.tolist()
 
-        return fig2html(fig,name="page")
+    palette = {}
+
+    marker_lane_index = int(config["marker"]["id"])
+    marker_lane = page.get_lane(index=marker_lane_index, start=0).astype(float)
+    marker = pv.pypage.Marker(marker_lane)
+    marker.annotate(config["marker"]["annotate"])
+
+    if df is not None:
+        fig = page.annotated_imshow(palette, rectangle=True)
+    else:
+        fig = page.check_image()
+
+    fig = pv.pypage.write_marker(fig, marker)
+    return fig2html(fig, name="page")
+
+
+def fig2html(fig, name="image"):
+    fig.update_layout(width=900, height=600)
+    config = {
+        'toImageButtonOptions': {
+            'format': 'svg',
+            'filename': name,
+            'width': 900,
+            'height': 600,
+            'scale': 1
+        }
+    }
+    return pio.to_html(fig, full_html=False, config=config)
+
+
+def get_page_fig4annotate(bucket_name, image_path, config, df):
+    lane_width = int(config["lane_width"])
+    margin = float(config["margin"])
+
+    image_obj = gcs_utils.download_blob_to_file_object(bucket_name, image_path)
+    page = pv.pypage.PageImage(image_obj, lane_width=lane_width, margin=margin)
+
+    page.annotate_lanes(df["Name"].values.tolist())
+    page.palette = df["Color_code"].values.tolist()
+
+    palette = {}
+    fig = page.annotated_imshow(palette, rectangle=True)
+    return fig2html(fig, name="page")
 
 
 def fraction_pooling(df):

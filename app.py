@@ -14,13 +14,13 @@ import json
 from pathlib import Path
 import shutil
 import numpy as np
+import io
 
 import proteovis as pv
 from utils import *
 from models import *
 from forms import *
-
-pio.orca.config.executable = 'C:/Users/jb60386/AppData/Local/Programs/orca/orca.exe'
+import gcs_utils
 
 main = Blueprint('main', __name__)
 
@@ -52,90 +52,82 @@ def new_experiment():
         experiment_name = request.form.get('experiment-name')
         user_name = request.form.get('user-name')
         project_code = request.form.get('project-code')
+        bucket_name = current_app.config['GCS_BUCKET_NAME']
 
-        new_experiment=Experiment(name=experiment_name,
-                                  user_id=user_name,
-                                  project_code=project_code)
+        # Check if experiment already exists in GCS
+        # We check if any object exists with the experiment name as a prefix.
+        if gcs_utils.list_blobs_with_prefix(bucket_name, prefix=f"{experiment_name}/"):
+            return render_template('new_experiment.html', error="Error: An experiment with that name already exists. Please choose a different name.")
 
-        db.session.add(new_experiment)
+        new_experiment_rec = Experiment(name=experiment_name,
+                                        user_id=user_name,
+                                        project_code=project_code)
+        db.session.add(new_experiment_rec)
         db.session.commit()
 
-        #today_str = datetime.now().strftime('%Y%m%d')
-        exppath = ExperimentPath(header=current_app.config['UPLOAD_FOLDER'],
-                             experiment=experiment_name)
-    
-        analysis_dir = exppath.analysis
-        raw_dir = exppath.raw
-        analysis_dir = exppath.analysis
-        worksheet_dir = exppath.worksheet
+        exppath = ExperimentPath(bucket_name=bucket_name, experiment_name=experiment_name)
 
-        try:
-            os.makedirs(raw_dir, exist_ok=False) # exist_ok=Falseでエラーを発生させる
-            os.makedirs(analysis_dir, exist_ok=False)
-            os.makedirs(worksheet_dir, exist_ok=False)
-        except FileExistsError:
-            return render_template('new_experiment.html', error="Error: A folder with that name already exists for today. Please choose a different experiment name.")
+        analysis_prefix = exppath.analysis_prefix
+        raw_prefix = exppath.raw_prefix
+        worksheet_prefix = exppath.worksheet_prefix
 
+        # No need for os.makedirs with GCS
 
         files = request.files.getlist('files[]')
- 
+
+        # Upload raw files
         if files:
             for file in files:
-                print(file.filename)
                 if file.filename:
-                    filename = os.path.join(raw_dir, file.filename)
-                    file.save(filename)
-                    print(f"Uploaded file: {filename}")
+                    blob_name = f"{raw_prefix}/{file.filename}"
+                    gcs_utils.upload_blob_from_file_object(bucket_name, file.stream, blob_name)
+                    print(f"Uploaded file: {blob_name}")
 
         print(f"Experiment Name: {experiment_name}")
         print(f"User Name: {user_name}")
         print(f"Project Code: {project_code}")
       
-        rawfile_list = glob(os.path.join(raw_dir,"*"))
-
+        # Process uploaded files
+        rawfile_list = gcs_utils.list_blobs_with_prefix(bucket_name, prefix=raw_prefix)
 
         for path in rawfile_list:
             name = os.path.basename(path).split(".")[0]
-            data_dir = os.path.join(analysis_dir,name)
+            data_prefix = f"{analysis_prefix}/{name}"
             
-            try:
-                os.makedirs(data_dir,exist_ok=False)
-            except FileExistsError:
-                return render_template('index.html', error="Error: A folder with that name already exists for today. Please choose a different file.")
+            # No need to check for folder existence in GCS
 
-            if path[-3:] == "zip":
-                akta_df,frac_df,phase_df,akta_fig = get_akta_data(path)
-                akta_df.to_csv(os.path.join(data_dir,"all_data.csv"))
-                frac_df.to_csv(os.path.join(data_dir,"fraction.csv"))
-                phase_df.to_csv(os.path.join(data_dir,"phase.csv"))
-                test = akta_fig.to_html(full_html=False)
-                #return render_template('chromatography.html',chromatogram=test)
-                akta_fig.write_image(os.path.join(data_dir,"icon.png"),engine="orca")
+            file_ext = os.path.splitext(path)[1].lower()
 
-                run = Run(experiment_id=new_experiment.id,
-                          name=name,
-                          type="AKTA")
-                
+            if file_ext == ".zip":
+                akta_df, frac_df, phase_df, akta_fig = get_akta_data(bucket_name, path)
+                gcs_utils.dataframe_to_gcs_csv(akta_df, bucket_name, f"{data_prefix}/all_data.csv")
+                gcs_utils.dataframe_to_gcs_csv(frac_df, bucket_name, f"{data_prefix}/fraction.csv")
+                gcs_utils.dataframe_to_gcs_csv(phase_df, bucket_name, f"{data_prefix}/phase.csv")
+
+                # Save figure to GCS
+                img_bytes = akta_fig.to_image(format="png", engine="kaleido")
+                gcs_utils.upload_blob_from_string(bucket_name, img_bytes, f"{data_prefix}/icon.png", 'image/png')
+
+                run = Run(experiment_id=new_experiment_rec.id, name=name, type="AKTA")
                 db.session.add(run)
                 db.session.commit()
 
-                config = {"run_id":run.id}
-                json_save(config,os.path.join(data_dir,"config.json"))
+                config = {"run_id": run.id}
+                json_save(bucket_name, config, f"{data_prefix}/config.json")
 
+            elif file_ext in [".png", ".jpg", ".jpeg", ".tiff", ".tif"]:
+                page_fig = get_page_image(bucket_name, path)
 
-            elif path[-3:] in ["png","jpg","iff","tif"]:
-                page_fig = get_page_image(path)
-                ext = os.path.splitext(path)[-1]
-                page_fig.write_image(os.path.join(data_dir,"icon.png"),engine="orca")
-                run = Run(experiment_id=new_experiment.id,
-                          name=name,
-                          type="PAGE")
+                # Save figure to GCS
+                img_bytes = page_fig.to_image(format="png", engine="kaleido")
+                gcs_utils.upload_blob_from_string(bucket_name, img_bytes, f"{data_prefix}/icon.png", 'image/png')
                 
+                run = Run(experiment_id=new_experiment_rec.id, name=name, type="PAGE")
                 db.session.add(run)
                 db.session.commit()
                 
-                config = {"ext":ext,"run_id":run.id}
-                json_save(config,os.path.join(data_dir,"config.json"))
+                config = {"ext": file_ext, "run_id": run.id}
+                json_save(bucket_name, config, f"{data_prefix}/config.json")
 
                 
             
@@ -151,69 +143,64 @@ def new_experiment():
 
 @main.route("/experiment/<experiment_name>/upload", methods=["POST"])
 def upload(experiment_name):
-    exppath = ExperimentPath(header=current_app.config['UPLOAD_FOLDER'],
-                        experiment=experiment_name)
+    bucket_name = current_app.config['GCS_BUCKET_NAME']
+    exppath = ExperimentPath(bucket_name=bucket_name, experiment_name=experiment_name)
     experiment_id = Experiment.query.filter_by(name=experiment_name).first().id
 
-
-    raw_dir = exppath.raw
-    analysis_dir = exppath.analysis
-    worksheet_dir = exppath.worksheet
+    raw_prefix = exppath.raw_prefix
+    analysis_prefix = exppath.analysis_prefix
 
     file = request.files.get('file')
+    uploaded_blob_path = ""
 
-    print(file.filename)
-    if file.filename:
-        filename = os.path.join(raw_dir, file.filename)
-        file.save(filename)
-        print(f"Uploaded file: {filename}")
+    if file and file.filename:
+        uploaded_blob_path = f"{raw_prefix}/{file.filename}"
+        gcs_utils.upload_blob_from_file_object(bucket_name, file.stream, uploaded_blob_path)
+        print(f"Uploaded file: {uploaded_blob_path}")
+    else:
+        # Handle case where no file is uploaded or filename is empty
+        flash("No file selected for upload.")
+        return redirect(url_for("main.experiment", experiment_name=experiment_name))
 
+    # Process the single uploaded file
+    path = uploaded_blob_path
+    name = os.path.basename(path).split(".")[0]
+    data_prefix = f"{analysis_prefix}/{name}"
 
-    rawfile = filename
+    # Check if analysis for this run already exists
+    if gcs_utils.list_blobs_with_prefix(bucket_name, prefix=f"{data_prefix}/"):
+        flash(f"Error: Analysis for '{name}' already exists.")
+        return redirect(url_for("main.experiment", experiment_name=experiment_name))
 
+    file_ext = os.path.splitext(path)[1].lower()
 
-    for path in [rawfile]:
-        name = os.path.basename(path).split(".")[0]
-        data_dir = os.path.join(analysis_dir,name)
-        
-        try:
-            os.makedirs(data_dir,exist_ok=False)
-        except FileExistsError:
-            return render_template('index.html', error="Error: A folder with that name already exists for today. Please choose a different file.")
+    if file_ext == ".zip":
+        akta_df, frac_df, phase_df, akta_fig = get_akta_data(bucket_name, path)
+        gcs_utils.dataframe_to_gcs_csv(akta_df, bucket_name, f"{data_prefix}/all_data.csv")
+        gcs_utils.dataframe_to_gcs_csv(frac_df, bucket_name, f"{data_prefix}/fraction.csv")
+        gcs_utils.dataframe_to_gcs_csv(phase_df, bucket_name, f"{data_prefix}/phase.csv")
 
-        if path[-3:] == "zip":
-            akta_df,frac_df,phase_df,akta_fig = get_akta_data(path)
-            akta_df.to_csv(os.path.join(data_dir,"all_data.csv"))
-            frac_df.to_csv(os.path.join(data_dir,"fraction.csv"))
-            phase_df.to_csv(os.path.join(data_dir,"phase.csv"))
-            test = akta_fig.to_html(full_html=False)
-            #return render_template('chromatography.html',chromatogram=test)
-            akta_fig.write_image(os.path.join(data_dir,"icon.png"),engine="orca")
+        img_bytes = akta_fig.to_image(format="png", engine="kaleido")
+        gcs_utils.upload_blob_from_string(bucket_name, img_bytes, f"{data_prefix}/icon.png", 'image/png')
 
-            run = Run(experiment_id=experiment_id,
-                        name=name,
-                        type="AKTA")
-            
-            db.session.add(run)
-            db.session.commit()
+        run = Run(experiment_id=experiment_id, name=name, type="AKTA")
+        db.session.add(run)
+        db.session.commit()
 
-            config = {"run_id":run.id}
-            json_save(config,os.path.join(data_dir,"config.json"))
+        config = {"run_id": run.id}
+        json_save(bucket_name, config, f"{data_prefix}/config.json")
 
+    elif file_ext in [".png", ".jpg", ".jpeg", ".tiff", ".tif"]:
+        page_fig = get_page_image(bucket_name, path)
+        img_bytes = page_fig.to_image(format="png", engine="kaleido")
+        gcs_utils.upload_blob_from_string(bucket_name, img_bytes, f"{data_prefix}/icon.png", 'image/png')
 
-        elif path[-3:] in ["png","jpg","iff","tif"]:
-            page_fig = get_page_image(path)
-            ext = os.path.splitext(path)[-1]
-            page_fig.write_image(os.path.join(data_dir,"icon.png"),engine="orca")
-            run = Run(experiment_id=experiment_id,
-                        name=name,
-                        type="PAGE")
-            
-            db.session.add(run)
-            db.session.commit()
-            
-            config = {"ext":ext,"run_id":run.id}
-            json_save(config,os.path.join(data_dir,"config.json"))
+        run = Run(experiment_id=experiment_id, name=name, type="PAGE")
+        db.session.add(run)
+        db.session.commit()
+
+        config = {"ext": file_ext, "run_id": run.id}
+        json_save(bucket_name, config, f"{data_prefix}/config.json")
 
 
     return redirect(url_for(f"main.experiment",experiment_name=experiment_name))#select(experiment_name)
@@ -221,83 +208,74 @@ def upload(experiment_name):
 
 @main.route('/open_experiment', methods=['GET'])
 def open_experiment():
-    #experiments = glob(os.path.join(current_app.config['UPLOAD_FOLDER'],"*"))
     experiments = Experiment.query.all()
-
     exp_dic = {}
 
     for exp in experiments:
-        exp_name = exp.name
-        exppath = ExperimentPath(header=current_app.config['UPLOAD_FOLDER'],
-                                experiment=exp_name)
-        #data = list(exppath.data.keys())
+        # The data about runs is in the database, so we don't need to check GCS here.
+        # This simplifies the logic significantly compared to the old glob-based version.
         data = [run.name for run in Run.query.filter_by(experiment_id=exp.id).all()]
-
-        exp_dic[exp_name] = ", ".join(data)
-
-
+        exp_dic[exp.name] = ", ".join(data)
 
     return render_template('open_experiment.html', experiments=exp_dic)
 
 
 @main.route(f"/experiment/<experiment_name>/delete")
 def delete_experiment(experiment_name):
-    shutil.rmtree(os.path.join(current_app.config['UPLOAD_FOLDER'],experiment_name))
+    bucket_name = current_app.config['GCS_BUCKET_NAME']
+
+    # First, delete the files from GCS
+    gcs_utils.delete_folder(bucket_name, folder_prefix=experiment_name)
+
+    # Then, delete the records from the database
+    exp_to_delete = Experiment.query.filter_by(name=experiment_name).first()
+    if exp_to_delete:
+        # This will cascade delete runs, fractions etc. if configured in the model.
+        # Assuming cascading is set up correctly. If not, would need to delete children explicitly.
+        db.session.delete(exp_to_delete)
+        db.session.commit()
+        flash(f"Experiment '{experiment_name}' and all associated data have been deleted.")
+    else:
+        flash(f"Experiment '{experiment_name}' not found in the database.")
 
     return redirect(url_for("main.open_experiment"))
 
 
 
 @main.route("/experiment/<experiment_name>/worksheet4akta/<worksheet_name>", methods=["GET", "POST"])
-def worksheet4akta(experiment_name,worksheet_name):
-    exppath = ExperimentPath(header=current_app.config['UPLOAD_FOLDER'],
-                                experiment=experiment_name)
+def worksheet4akta(experiment_name, worksheet_name):
+    bucket_name = current_app.config['GCS_BUCKET_NAME']
+    exppath = ExperimentPath(bucket_name=bucket_name, experiment_name=experiment_name)
     experiment_id = Experiment.query.filter_by(name=experiment_name).first().id
 
-    worksheet_dir = exppath.worksheet
-    worksheet_path = exppath.worksheets.get(worksheet_name)
-    print(worksheet_path)
+    worksheet_prefix = exppath.worksheet_prefix
+    worksheet_path = f"{worksheet_prefix}/{worksheet_name}.json"
 
+    default_data_rows = [
+        {"rate": 1, "length": 5, "percentB": 0, "slopeType": "step", "path": "", "fractionVol": 0},
+        {"rate": 1, "length": 1, "percentB": 0, "slopeType": "step", "path": "sample loop", "fractionVol": 0},
+        {"rate": 1, "length": 5, "percentB": 0, "slopeType": "step", "path": "", "fractionVol": 0},
+        {"rate": 1, "length": 10, "percentB": 50, "slopeType": "gradient", "path": "", "fractionVol": 0},
+        {"rate": 1, "length": 5, "percentB": 100, "slopeType": "step", "path": "", "fractionVol": 0},
+        {"rate": 1, "length": 3, "percentB": 0, "slopeType": "step", "path": "", "fractionVol": 0},
+    ]
 
     if request.method == "GET":
-        if worksheet_path:
-            json_data = json.load(open(worksheet_path,),)
-            data = {
-            }
-            if json_data.get("program"):
-                data["rows"] = list(json_data["program"].values())
-            else:
-                data["rows"] = [
-                        {"rate": 1, "length": 5, "percentB": 0, "slopeType": "step", "path": "", "fractionVol": 0},
-                        {"rate": 1, "length": 1, "percentB": 0, "slopeType": "step", "path": "sample loop", "fractionVol": 0},
-                        {"rate": 1, "length": 5, "percentB": 0, "slopeType": "step", "path": "", "fractionVol": 0},
-                        {"rate": 1, "length": 10, "percentB": 50, "slopeType": "gradient", "path": "", "fractionVol": 0},
-                        {"rate": 1, "length": 5, "percentB": 100, "slopeType": "step", "path": "", "fractionVol": 0},
-                        {"rate": 1, "length": 3, "percentB": 0, "slopeType": "step", "path": "", "fractionVol": 0},
-                        ]
-            
-            if json_data.get("column_cv"):
-                data["cv"] = json_data["column_cv"]
-            else:
-                data["cv"] = 1
+        data = {}
+        if gcs_utils.blob_exists(bucket_name, worksheet_path):
+            json_string = gcs_utils.download_blob_as_string(bucket_name, worksheet_path)
+            json_data = json.loads(json_string)
+            data["rows"] = list(json_data.get("program", {}).values()) if json_data.get("program") else default_data_rows
+            data["cv"] = json_data.get("column_cv", 1)
+        else:
+            data["rows"] = default_data_rows
+            data["cv"] = 1
 
-        else: 
-            data = {
-                "rows":[
-                        {"rate": 1, "length": 5, "percentB": 0, "slopeType": "step", "path": "", "fractionVol": 0},
-                        {"rate": 1, "length": 1, "percentB": 0, "slopeType": "step", "path": "sample loop", "fractionVol": 0},
-                        {"rate": 1, "length": 5, "percentB": 0, "slopeType": "step", "path": "", "fractionVol": 0},
-                        {"rate": 1, "length": 10, "percentB": 50, "slopeType": "gradient", "path": "", "fractionVol": 0},
-                        {"rate": 1, "length": 5, "percentB": 100, "slopeType": "step", "path": "", "fractionVol": 0},
-                        {"rate": 1, "length": 3, "percentB": 0, "slopeType": "step", "path": "", "fractionVol": 0},
-                        ],
-                "cv":1
-            }
-        data_json_string = json.dumps(data,)
-        return render_template("worksheet4akta.html",data=data_json_string) # index.htmlをレンダリング
-    
-    
+        data_json_string = json.dumps(data)
+        return render_template("worksheet4akta.html", data=data_json_string)
+
     elif request.method == "POST":
+        # Buffer data processing logic (remains the same)
         key_list = list(request.form.keys())
         buf_data = {"a1":[], "a2":[], "b1":[], "b2":[]}
         for key in key_list:
@@ -309,138 +287,90 @@ def worksheet4akta(experiment_name,worksheet_name):
         buf_data_input = {"a1":"", "a2":"", "b1":"", "b2":""}
         for ke, va in buf_data.items():
             buf_data_input[ke] = ", ".join(va)
-        
 
+        # Form data extraction (remains mostly the same)
         data = {
-            "worksheet_name":request.form.get("worksheet-name"),
+            "worksheet_name": request.form.get("worksheet-name"),
             "column_name": request.form.get("column-name"),
             "column_cv": request.form.get("column-cv"),
             "sample_loop_name": request.form.get("sample-loop-name"),
             "sample_loop_volume": request.form.get("sample-loop-volume"),
-            #"buffer_a1": request.form.get("buffer-a1"),
-            "buffer_a1": buf_data_input["a1"],
-            "number_a1": request.form.get("number-a1"),
-            "a1_ph": request.form.get("a1-ph"),
-            #"buffer_a2": request.form.get("buffer-a2"),
-            "buffer_a2": buf_data_input["a2"],
-            "number_a2": request.form.get("number-a2"),
-            "a2_ph": request.form.get("a2-ph"),
-            #"buffer_b1": request.form.get("buffer-b1"),
-            "buffer_b1": buf_data_input["b1"],
-            "number_b1": request.form.get("number-b1"),
-            "b1_ph": request.form.get("b1-ph"),
-            #"buffer_b2": request.form.get("buffer-b2"),
-            "buffer_b2": buf_data_input["b2"],
-            "number_b2": request.form.get("number-b2"),
-            "b2_ph": request.form.get("b2-ph"),
+            "buffer_a1": buf_data_input["a1"], "number_a1": request.form.get("number-a1"), "a1_ph": request.form.get("a1-ph"),
+            "buffer_a2": buf_data_input["a2"], "number_a2": request.form.get("number-a2"), "a2_ph": request.form.get("a2-ph"),
+            "buffer_b1": buf_data_input["b1"], "number_b1": request.form.get("number-b1"), "b1_ph": request.form.get("b1-ph"),
+            "buffer_b2": buf_data_input["b2"], "number_b2": request.form.get("number-b2"), "b2_ph": request.form.get("b2-ph"),
             "sample_pump_s1": request.form.get("sample-pump-s1"),
             "sample_pump_buffer": request.form.get("sample-pump-buffer"),
         }
 
-        for k,v in data.items():
-            try:
-                data[k] = float(v)
-            except:
-                continue
+        for k, v in data.items():
+            try: data[k] = float(v)
+            except (ValueError, TypeError): continue
 
-        worksheet_dir = exppath.worksheet
-
-        # プログラムテーブルのデータ抽出 (これは動的なので、少し複雑です)
-        rates = np.array(request.form.getlist('rate[]')).astype(float)
-        lengths = np.array(request.form.getlist('length[]')).astype(float)
-        percentBs = np.array(request.form.getlist('percentB[]')).astype(float)
-        slopeTypes = request.form.getlist('slopeType[]')
-        paths = request.form.getlist('path[]')
-        fractionVols = np.array(request.form.getlist('fractionVol[]')).astype(float)
-
+        # Program table data extraction (remains the same)
         program_df = pd.DataFrame(data=dict(
-            rate=rates,
-            length=lengths,
-            percentB=percentBs,
-            slopeType=slopeTypes,
-            path=paths,
-            fractionVol=fractionVols
+            rate=np.array(request.form.getlist('rate[]')).astype(float),
+            length=np.array(request.form.getlist('length[]')).astype(float),
+            percentB=np.array(request.form.getlist('percentB[]')).astype(float),
+            slopeType=request.form.getlist('slopeType[]'),
+            path=request.form.getlist('path[]'),
+            fractionVol=np.array(request.form.getlist('fractionVol[]')).astype(float)
         ))
-
         data["program"] = program_df.to_dict(orient="index")
-        worksheet_path = os.path.join(os.path.join(worksheet_dir,f"{worksheet_name}.json"))
-        json_save(data,worksheet_path)
-
-
-        if worksheet_path:
-            worksheet = Worksheet.query.filter_by(experiment_id=experiment_id,
-                                                  name=worksheet_name,
-                                                  type="AKTA").first()
         
-        else:
+        # Save to GCS
+        json_save(bucket_name, data, worksheet_path)
 
-            worksheet = Worksheet(experiment_id=experiment_id,
-                                  name=worksheet_name,
-                                  type="AKTA")
-
+        # Database logic (remains the same)
+        worksheet = Worksheet.query.filter_by(experiment_id=experiment_id, name=worksheet_name, type="AKTA").first()
+        if not worksheet:
+            worksheet = Worksheet(experiment_id=experiment_id, name=worksheet_name, type="AKTA")
             db.session.add(worksheet)
-            
         db.session.commit()
 
-        return redirect(url_for("main.worksheet4aktaview",
-                                experiment_name=experiment_name,
-                                worksheet_name=worksheet_name))
+        return redirect(url_for("main.worksheet4aktaview", experiment_name=experiment_name, worksheet_name=worksheet_name))
 
 
 @main.route("/experiment/<experiment_name>/worksheet4akta/<worksheet_name>/view", methods=["GET"])
-def worksheet4aktaview(experiment_name,worksheet_name):
-    exppath = ExperimentPath(header=current_app.config['UPLOAD_FOLDER'],
-                                experiment=experiment_name)
-    experiment_id = Experiment.query.filter_by(name=experiment_name).first().id
+def worksheet4aktaview(experiment_name, worksheet_name):
+    bucket_name = current_app.config['GCS_BUCKET_NAME']
+    exppath = ExperimentPath(bucket_name=bucket_name, experiment_name=experiment_name)
 
-    worksheet_dir = exppath.worksheet
-    worksheet_path = exppath.worksheets.get(worksheet_name)
+    worksheet_path = f"{exppath.worksheet_prefix}/{worksheet_name}.json"
 
-    data = json.load(open(worksheet_path))
-    data_json_string = json.dumps(data,)
+    json_string = gcs_utils.download_blob_as_string(bucket_name, worksheet_path)
+    data = json.loads(json_string)
+    data_json_string = json.dumps(data)
 
-
-    chart_data = {}
-    chart_data["rows"] = list(data["program"].values())
-    chart_data["cv"] = data["column_cv"]
-
-    chart_data_json_string = json.dumps(chart_data,)
+    chart_data = {
+        "rows": list(data.get("program", {}).values()),
+        "cv": data.get("column_cv", 1)
+    }
+    chart_data_json_string = json.dumps(chart_data)
 
     return render_template("worksheet4aktaview.html",
-                            data=data_json_string,
-                            chart_data=chart_data_json_string)
+                           data=data_json_string,
+                           chart_data=chart_data_json_string)
 
 
 
 @main.route(f"/experiment/<experiment_name>")
 def experiment(experiment_name):
-    exppath = ExperimentPath(header=current_app.config['UPLOAD_FOLDER'],
-                             experiment=experiment_name)
-    
-    analysis_dir = exppath.analysis
-
+    bucket_name = current_app.config['GCS_BUCKET_NAME']
+    exppath = ExperimentPath(bucket_name=bucket_name, experiment_name=experiment_name)
     sample_list = get_samples(exppath)
-
-
-    return render_template('template4input.html',experiment_name=experiment_name,sample_list=sample_list)
+    return render_template('template4input.html', experiment_name=experiment_name, sample_list=sample_list)
 
 
 @main.route(f"/experiment/<experiment_name>/AKTA/<run_name>/show", methods=["GET"])
-def show_akta(experiment_name,run_name):
-    exppath = ExperimentPath(header=current_app.config['UPLOAD_FOLDER'],
-                             experiment=experiment_name)
-    
+def show_akta(experiment_name, run_name):
+    bucket_name = current_app.config['GCS_BUCKET_NAME']
+    exppath = ExperimentPath(bucket_name=bucket_name, experiment_name=experiment_name)
     datapath = exppath.data[run_name]
     
-    data_dir = datapath.analysis
-
-    if request.method == 'GET':
-        sample_list = get_samples(exppath)
-
-        fig_html = get_akta_fig(data_dir)
-
+    sample_list = get_samples(exppath)
+    fig_html = get_akta_fig(bucket_name, datapath.analysis_prefix)
     info = sampling_data(datapath)
-
 
     return render_template('show_akta.html',
                            experiment_name=experiment_name,
@@ -450,238 +380,190 @@ def show_akta(experiment_name,run_name):
 
 
 @main.route(f"/experiment/<experiment_name>/AKTA/<run_name>/phase", methods=['GET', 'POST'])
-def akta(experiment_name,run_name):
-    exppath = ExperimentPath(header=current_app.config['UPLOAD_FOLDER'],
-                             experiment=experiment_name)
-    
-    data_dir = exppath.data[run_name].analysis
+def akta(experiment_name, run_name):
+    bucket_name = current_app.config['GCS_BUCKET_NAME']
+    exppath = ExperimentPath(bucket_name=bucket_name, experiment_name=experiment_name)
+    datapath = exppath.data[run_name]
+    analysis_prefix = datapath.analysis_prefix
 
     if request.method == 'GET':
         sample_list = get_samples(exppath)
+        fig_html = get_akta_fig(bucket_name, analysis_prefix)
+        phase_list = get_phase_data(bucket_name, analysis_prefix)
+        return render_template('phase.html', sample_list=sample_list, akta_fig=fig_html, phase_list=phase_list)
 
-        fig_html = get_akta_fig(data_dir)
-
-        phase_list = get_phase_data(data_dir)
-        #right pannel 
-
-        return render_template('phase.html',sample_list=sample_list,akta_fig=fig_html, phase_list=phase_list) #add right pannel data
-
-    else:
-        #df read
-        df = get_phase_df(data_dir)
-
+    else: # POST
+        df = get_phase_df(bucket_name, analysis_prefix)
         for i in df.index:
             df.loc[i, "Phase"] = request.form.get(f'phase_{i}')
-            df.loc[i,"Color_code"] = request.form.get(f'color_{i}')
-
-        df.to_csv(os.path.join(data_dir,"phase.csv"),na_rep="A")
+            df.loc[i, "Color_code"] = request.form.get(f'color_{i}')
         
-        return redirect(url_for(f"main.akta_pooling",experiment_name=experiment_name, run_name=run_name))
+        gcs_utils.dataframe_to_gcs_csv(df, bucket_name, f"{analysis_prefix}/phase.csv")
+        return redirect(url_for(f"main.akta_pooling", experiment_name=experiment_name, run_name=run_name))
 
 
 @main.route(f"/experiment/<experiment_name>/AKTA/<run_name>/pooling", methods=['GET', 'POST'])
-def akta_pooling(experiment_name,run_name):
-    exppath = ExperimentPath(header=current_app.config['UPLOAD_FOLDER'],
-                                experiment=experiment_name)
-    
+def akta_pooling(experiment_name, run_name):
+    bucket_name = current_app.config['GCS_BUCKET_NAME']
+    exppath = ExperimentPath(bucket_name=bucket_name, experiment_name=experiment_name)
     datapath = exppath.data[run_name]
-    data_dir = datapath.analysis
+    analysis_prefix = datapath.analysis_prefix
     
-
     if request.method == 'GET':
         sample_list = get_samples(exppath)
-        fig_html = get_akta_fig(data_dir, origin=True)
-        phase_list = get_phase_data(data_dir)
-        #right pannel 
-        fraction_list = get_frac_data(data_dir)
+        fig_html = get_akta_fig(bucket_name, analysis_prefix, origin=True)
+        phase_list = get_phase_data(bucket_name, analysis_prefix)
+        fraction_list = get_frac_data(bucket_name, analysis_prefix)
 
         return render_template('pool.html',
                                 sample_list=sample_list,
-                                akta_fig=fig_html, 
+                                akta_fig=fig_html,
                                 phase_list=phase_list,
-                                fraction_list=fraction_list) #add right pannel data
-        #return render_template('pool.html')
+                                fraction_list=fraction_list)
 
-
-    else: #pattern of POST
-        frac_path = os.path.join(data_dir, "fraction.csv")
-        frac_df = pd.read_csv(frac_path,index_col=0)
+    else: # POST
+        frac_df = gcs_utils.gcs_csv_to_dataframe(bucket_name, datapath.fraction)
         frac_df["Pool"] = frac_df["Fraction_Start"].copy()
 
-        pool_names = request.form.getlist("poolname",)
+        pool_names = request.form.getlist("poolname")
         region_list = request.form.getlist("fractionRegion")
 
         pool_dict = {}
-        
-        for region, pool_name in zip(region_list,pool_names):
-            names= region.split(" - ")
-            pool_dict[pool_name]=(names[0],names[1])
+        for region, pool_name in zip(region_list, pool_names):
+            names = region.split(" - ")
+            pool_dict[pool_name] = (names[0], names[1])
 
-        json_save(pool_dict,datapath.pool)
-
-        return redirect(url_for(f"main.akta_fraction",experiment_name=experiment_name, run_name=run_name))
+        json_save(bucket_name, pool_dict, datapath.pool)
+        return redirect(url_for(f"main.akta_fraction", experiment_name=experiment_name, run_name=run_name))
 
 
 @main.route(f"/experiment/<experiment_name>/AKTA/<run_name>/fraction", methods=['GET', 'POST'])
-def akta_fraction(experiment_name,run_name):
-    exppath = ExperimentPath(header=current_app.config['UPLOAD_FOLDER'],
-                            experiment=experiment_name) 
+def akta_fraction(experiment_name, run_name):
+    bucket_name = current_app.config['GCS_BUCKET_NAME']
+    exppath = ExperimentPath(bucket_name=bucket_name, experiment_name=experiment_name)
     datapath = exppath.data[run_name]
-    data_dir = datapath.analysis
+    analysis_prefix = datapath.analysis_prefix
 
     session["experiment_name"] = experiment_name
     session["run_name"] = run_name
-    
 
     if request.method == 'GET':
         sample_list = get_samples(exppath)
-        fig_html = get_akta_fig(data_dir)
-        fraction_df = get_frac_df(data_dir)
+        fig_html = get_akta_fig(bucket_name, analysis_prefix)
 
-
-        if os.path.exists(datapath.show):
-            show_df = get_frac_df(data_dir,"show")
-
-
+        if gcs_utils.blob_exists(bucket_name, datapath.show):
+            show_df = gcs_utils.gcs_csv_to_dataframe(bucket_name, datapath.show)
         else:
-            show_df = get_frac_df(data_dir)
-            if os.path.exists(datapath.pool):
-                pool_dict = json.load(open(datapath.pool))
-
-                for name,(start,end) in pool_dict.items():
-                    show_df = pv.pycorn.utils.pooling_fraction(fraction_df,start=start,end=end,name=name)
-            
+            fraction_df = gcs_utils.gcs_csv_to_dataframe(bucket_name, datapath.fraction)
+            show_df = fraction_df.copy()
+            if gcs_utils.blob_exists(bucket_name, datapath.pool):
+                pool_json_str = gcs_utils.download_blob_as_string(bucket_name, datapath.pool)
+                pool_dict = json.loads(pool_json_str)
+                for name, (start, end) in pool_dict.items():
+                    show_df = pv.pycorn.utils.pooling_fraction(fraction_df, start=start, end=end, name=name)
             else:
                 show_df["Pool"] = ""
-
             show_df["Name"] = show_df["Fraction_Start"]
             show_df["Show"] = True
         
-
-        show_df.to_csv(datapath.show)
-
+        gcs_utils.dataframe_to_gcs_csv(show_df, bucket_name, datapath.show)
 
         fraction_list = []
-        for i,row in show_df.iterrows():
-            fraction_list.append({"index":i,
-                            "name":row["Name"],
-                            "pool":row["Pool"],
-                            "show":row["Show"],
-                            "color":row["Color_code"]})
+        for i, row in show_df.iterrows():
+            fraction_list.append({"index": i,
+                                  "name": row["Name"],
+                                  "pool": row["Pool"],
+                                  "show": row["Show"],
+                                  "color": row["Color_code"]})
             
         return render_template('fraction.html',
                                 sample_list=sample_list,
                                 akta_fig=fig_html, 
                                 fraction_list=fraction_list)
-        
 
     if request.method == 'POST':
         colors = request.form.getlist("color")
         names = request.form.getlist("fraction_name")
         shows = [int(s) for s in request.form.getlist("show")]
 
-        show_df = get_frac_df(data_dir,"show")
-
+        show_df = gcs_utils.gcs_csv_to_dataframe(bucket_name, datapath.show)
         show_df["Color_code"] = colors
         show_df["Name"] = names
         show_df["Show"] = False
-        show_df.loc[shows,"Show"] = True
-
+        show_df.loc[shows, "Show"] = True
         show_df = show_df.fillna("")
+        gcs_utils.dataframe_to_gcs_csv(show_df, bucket_name, datapath.show)
 
-        show_df.to_csv(datapath.show)
-
-        config = json.load(open(datapath.config))
-
+        config_str = gcs_utils.download_blob_as_string(bucket_name, datapath.config)
+        config = json.loads(config_str)
 
         Fraction.query.filter_by(run_id=config["run_id"]).delete()
         db.session.commit()
 
-        for id,row in show_df.iterrows():
-
+        for id, row in show_df.iterrows():
             fraction = Fraction(run_id=config["run_id"],
                                 fraction_id=id,
-                                name=row["Name"],)
-            
+                                name=row["Name"])
             db.session.add(fraction)
             db.session.commit()
 
-    return redirect(url_for("main.show_akta", experiment_name=experiment_name,run_name=run_name))
+    return redirect(url_for("main.show_akta", experiment_name=experiment_name, run_name=run_name))
 
 
-@main.route("/reload_pool",methods=["GET"])
+@main.route("/reload_pool", methods=["GET"])
 def reload_pool():
     experiment_name = session["experiment_name"]
     run_name = session["run_name"]
+    bucket_name = current_app.config['GCS_BUCKET_NAME']
 
-    exppath = ExperimentPath(header=current_app.config['UPLOAD_FOLDER'],
-                            experiment=experiment_name) 
+    exppath = ExperimentPath(bucket_name=bucket_name, experiment_name=experiment_name)
     datapath = exppath.data[run_name]
 
-    os.remove(datapath.show)
+    if gcs_utils.blob_exists(bucket_name, datapath.show):
+        gcs_utils.delete_blob(bucket_name, datapath.show)
 
-    return redirect(url_for(f"main.akta_fraction",experiment_name=experiment_name, run_name=run_name))
+    return redirect(url_for(f"main.akta_fraction", experiment_name=experiment_name, run_name=run_name))
 
 
 
-@main.route(f"/experiment/<experiment_name>/PAGE/<run_name>/check", methods=["GET","POST"])
-def page_check(experiment_name,run_name):
-    exppath = ExperimentPath(header=current_app.config['UPLOAD_FOLDER'],
-                            experiment=experiment_name)
-    
-    analysis_dir = exppath.analysis
-    data_dir = exppath.data[run_name].analysis
-    raw_dir = exppath.raw
-
-    image_path = exppath.data[run_name].raw
-    config_file = exppath.data[run_name].config
-
+@main.route(f"/experiment/<experiment_name>/PAGE/<run_name>/check", methods=["GET", "POST"])
+def page_check(experiment_name, run_name):
+    bucket_name = current_app.config['GCS_BUCKET_NAME']
+    exppath = ExperimentPath(bucket_name=bucket_name, experiment_name=experiment_name)
+    datapath = exppath.data[run_name]
+    image_path = datapath.raw
+    config_path = datapath.config
 
     session["experiment_name"] = experiment_name
     session["run_name"] = run_name
     session["type"] = "PAGE"
 
     sample_list = get_samples(exppath)
+    config = {}
 
+    if gcs_utils.blob_exists(bucket_name, config_path):
+        config_str = gcs_utils.download_blob_as_string(bucket_name, config_path)
+        config = json.loads(config_str)
 
     if request.method == 'GET':
-        
-
-        if os.path.exists(config_file):
-            config = json.load(open(config_file))
-            
-            if config.get("lane_width"):
-                lane_width = config["lane_width"]
-                margin = config["margin"]
-            else:
-                lane_width = 45
-                margin = 0.2
-
-        else:
-            lane_width = 45
-            margin = 0.2
-
-
-    else:
-        lane_width = request.form.get('width-slider')
-        margin = request.form.get('margin-slider')
-        fig_html = get_page_fig(image_path,lane_width=int(lane_width),margin=float(margin))
-
-    if os.path.exists(config_file):
-        config = json.load(open(config_file))
-    
-    else:
-        config = []
+        lane_width = config.get("lane_width", 45)
+        margin = config.get("margin", 0.2)
+    else: # POST
+        lane_width = request.form.get('width-slider', 45)
+        margin = request.form.get('margin-slider', 0.2)
 
     config["lane_width"] = lane_width
     config["margin"] = margin
 
-    fig_html = get_page_fig(image_path,lane_width=lane_width,margin=margin)
+    json_save(bucket_name, config, config_path)
+
+    fig_html = get_page_fig(bucket_name, image_path, lane_width=lane_width, margin=margin)
         
-    with open(config_file, 'wt') as f:
-        json.dump(config, f, indent=2, ensure_ascii=False)
-        
-    return render_template('check.html',sample_list=sample_list,page_fig=fig_html,lane_width=lane_width,margin=margin)
+    return render_template('check.html',
+                           sample_list=sample_list,
+                           page_fig=fig_html,
+                           lane_width=lane_width,
+                           margin=margin)
 
 
 @main.route(f"/save_page", methods=["GET"])
@@ -696,70 +578,61 @@ def save_page():
 
 @main.route(f"/experiment/<experiment_name>/PAGE/<run_name>/annotate", methods=["GET","POST"])
 def page_annotate(experiment_name,run_name):
-    exppath = ExperimentPath(header=current_app.config['UPLOAD_FOLDER'],
-                            experiment=experiment_name)
-    
-    analysis_dir = exppath.analysis
+    bucket_name = current_app.config['GCS_BUCKET_NAME']
+    exppath = ExperimentPath(bucket_name=bucket_name, experiment_name=experiment_name)
     datapath = exppath.data[run_name]
     image_path = datapath.raw
-    config_file = datapath.config
+    config_path = datapath.config
+    analysis_prefix = exppath.analysis_prefix
+
     sample_list = get_samples(exppath)
-    config = json.load(open(config_file))
+    config_str = gcs_utils.download_blob_as_string(bucket_name, config_path)
+    config = json.loads(config_str)
 
-    def find_data(parent_directory, target_data):
-        dir_path = Path(parent_directory)
-        for file_path in dir_path.rglob(target_data):
-            return True, str(file_path)
-        return False, ""
+    # Helper function to find a file by suffix in a "directory"
+    def find_first_blob_with_suffix(prefix, suffix):
+        all_blobs = gcs_utils.list_blobs_with_prefix(bucket_name, prefix)
+        for blob in all_blobs:
+            if blob.endswith(suffix):
+                return blob
+        return None
 
-    bool_pool = find_data(analysis_dir, "pool.json")
-    bool_fraction = find_data(analysis_dir, "fraction.csv")
-    print (bool_pool, bool_fraction)
+    pool_path = find_first_blob_with_suffix(analysis_prefix, "pool.json")
+    fraction_path = find_first_blob_with_suffix(analysis_prefix, "fraction.csv")
 
-    if bool_fraction[0]:
-        fraction_df = get_frac_df(bool_fraction[1].replace("fraction.csv",""))
+    if fraction_path:
+        fraction_prefix = os.path.dirname(fraction_path)
+        fraction_df = gcs_utils.gcs_csv_to_dataframe(bucket_name, fraction_path)
         fraction_df["pool_name"] = fraction_df["Fraction_Start"].copy()
-        if bool_pool[0]:
-            with open(bool_pool[1], 'r') as f:
-                pool_dict = json.load(f)
-            
-            for name, values in zip(list(pool_dict.keys()), pool_dict.values()):
-
+        if pool_path:
+            pool_str = gcs_utils.download_blob_as_string(bucket_name, pool_path)
+            pool_dict = json.loads(pool_str)
+            for name, values in pool_dict.items():
                 start_index = fraction_df[fraction_df['Fraction_Start'] == values[0]].index[0]
                 end_index = fraction_df[fraction_df['Fraction_Start'] == values[1]].index[0]
-
-                # 'start'から'end'までの範囲に'test'を入力
                 fraction_df.loc[start_index:end_index, 'pool_name'] = name
-
             suggest_list = list(set(fraction_df["pool_name"].to_list()))
         else:
             suggest_list = list(set(fraction_df["Fraction_Start"].to_list()))
-    
     else:
-        suggest_list = [str(n) for n in range(1,16)]
+        suggest_list = [str(n) for n in range(1, 16)]
 
-
-
-
-    if os.path.exists(datapath.annotation):
-        df = pd.read_csv(datapath.annotation)
-        
-    
+    if gcs_utils.blob_exists(bucket_name, datapath.annotation):
+        df = gcs_utils.gcs_csv_to_dataframe(bucket_name, datapath.annotation)
     else:
-        df = make_page_df(datapath.analysis,datapath.raw)
+        df = make_page_df(bucket_name, datapath.analysis_prefix, datapath.raw)
 
     df = df.fillna("")
 
     lane_list = []
-    for i,row in df.iterrows():
-        lane_list.append({"index":row["Lane"],
-                        "name":row["Name"],
-                        "group":row["Group"],
-                        "subgroup":row["SubGroup"],
-                        "color":row["Color_code"]})
+    for i, row in df.iterrows():
+        lane_list.append({"index": row["Lane"],
+                          "name": row["Name"],
+                          "group": row["Group"],
+                          "subgroup": row["SubGroup"],
+                          "color": row["Color_code"]})
         
-    fig_html = get_page_fig4annotate(image_path,config,df)
-
+    fig_html = get_page_fig4annotate(bucket_name, image_path, config, df)
 
     if request.method == 'POST':
         colors = request.form.getlist("color")
@@ -767,85 +640,66 @@ def page_annotate(experiment_name,run_name):
         groups = request.form.getlist("lane_group")
         subgroups = request.form.getlist("lane_subgroup")
 
-        if os.path.exists(datapath.annotation):
-            df = pd.read_csv(datapath.annotation,index_col=0)
+        if gcs_utils.blob_exists(bucket_name, datapath.annotation):
+            df = gcs_utils.gcs_csv_to_dataframe(bucket_name, datapath.annotation, index_col=0)
         else:
-            df = make_page_df(datapath.analysis,datapath.raw)
+            df = make_page_df(bucket_name, datapath.analysis_prefix, datapath.raw)
 
         df["Color_code"] = colors
         df["Name"] = names
         df["Group"] = groups
         df["SubGroups"] = subgroups
-
         df = df.fillna("")
 
-        df.to_csv(datapath.annotation)
-
-        return redirect(url_for("main.page_marker",experiment_name=experiment_name,run_name=run_name))
+        gcs_utils.dataframe_to_gcs_csv(df, bucket_name, datapath.annotation)
+        return redirect(url_for("main.page_marker", experiment_name=experiment_name, run_name=run_name))
 
     elif request.method == 'GET':
-        return render_template('annotate.html',experiment_name=experiment_name,sample_list=sample_list,page_fig=fig_html,lane_list=lane_list, suggest_list=suggest_list)
+        return render_template('annotate.html',
+                               experiment_name=experiment_name,
+                               sample_list=sample_list,
+                               page_fig=fig_html,
+                               lane_list=lane_list,
+                               suggest_list=suggest_list)
 
 
-@main.route(f"/experiment/<experiment_name>/PAGE/<run_name>/marker", methods=["GET","POST"])
-def page_marker(experiment_name,run_name):
+@main.route(f"/experiment/<experiment_name>/PAGE/<run_name>/marker", methods=["GET", "POST"])
+def page_marker(experiment_name, run_name):
+    bucket_name = current_app.config['GCS_BUCKET_NAME']
+    exppath = ExperimentPath(bucket_name=bucket_name, experiment_name=experiment_name)
+    datapath = exppath.data[run_name]
 
-    exppath = ExperimentPath(header=current_app.config['UPLOAD_FOLDER'].replace("/","\\"),
-                             experiment=experiment_name)
-    
     session["experiment_name"] = experiment_name
     session["run_name"] = run_name
     session["type"] = "PAGE"
     
-    datapath = exppath.data[run_name]
-
     sample_list = get_samples(exppath)
+    config = get_page_config(bucket_name, datapath.analysis_prefix)
 
+    lane_width = config.get("lane_width", 45)
+    margin = config.get("margin", 0.2)
 
-    config = json.load(open(datapath.config))
-
-    lane_width = config["lane_width"]
-    margin = config["margin"]
-
-    fig_html = get_page_fig(datapath.raw,lane_width=int(lane_width),margin=float(margin))
-
-    marker_ids = get_page_lane_ids(datapath.raw,lane_width=int(lane_width),margin=float(margin))
+    fig_html = get_page_fig(bucket_name, datapath.raw, lane_width=lane_width, margin=margin)
+    marker_ids = get_page_lane_ids(bucket_name, datapath.raw, lane_width=lane_width, margin=margin)
     
-    config = json.load(open(datapath.config))
-
     if request.method == 'GET':
-        if config.get("marker"):
-            lane_id = config["marker"]["id"]
-        else:
-            lane_id = 0
-    
-    else:
-        lane_id = request.form.get('marker_id')
+        lane_id = config.get("marker", {}).get("id", 0)
+    else: # POST
+        lane_id = request.form.get('marker_id', 0)
 
-
-    if config.get("marker"):
-        config["marker"]["id"] = lane_id
+    # Ensure marker key exists
+    if "marker" not in config:
+        config["marker"] = {}
+    config["marker"]["id"] = lane_id
     
-    else:
-        config["marker"] = {"id":lane_id}
-
+    json_save(bucket_name, config, datapath.config)
     
-    json_save(config,datapath.config)
-    
-
-    marker_html,peak_n = marker_check(datapath.analysis,datapath.raw,lane_id=int(lane_id))
+    marker_html, peak_n = marker_check(bucket_name, datapath.analysis_prefix, datapath.raw, lane_id=int(lane_id))
 
     peak_list = []
-
-
-    if config["marker"].get("annotate"):
-        for id,(_,peak) in enumerate(zip(peak_n,config["marker"]["annotate"])):
-            peak_list.append({"id":id,"kDa":peak})
-    
-    else:
-        for id in range(len(peak_n)):
-            peak_list.append({"id":id,"kDa":""})
-
+    annotations = config["marker"].get("annotate", [])
+    for i in range(len(peak_n)):
+        peak_list.append({"id": i, "kDa": annotations[i] if i < len(annotations) else ""})
 
     return render_template('marker.html',
                            experiment_name=experiment_name,
@@ -861,50 +715,36 @@ def page_marker(experiment_name,run_name):
 def save_marker():
     experiment_name = session["experiment_name"]
     run_name = session["run_name"]
-    type = session["type"]
+    bucket_name = current_app.config['GCS_BUCKET_NAME']
 
-    exppath = ExperimentPath(header=current_app.config['UPLOAD_FOLDER'].replace("/","\\"),
-                             experiment=experiment_name)
-    
+    exppath = ExperimentPath(bucket_name=bucket_name, experiment_name=experiment_name)
     datapath = exppath.data[run_name]
 
-    config = json.load(open(datapath.config))
-
+    config = get_page_config(bucket_name, datapath.analysis_prefix)
     config["marker"]["annotate"] = request.form.getlist("peak")
+    json_save(bucket_name, config, datapath.config)
 
-    json_save(config,datapath.config)
-    print("gin")
-
-
-    return redirect(url_for(f"main.show_page",experiment_name=experiment_name,run_name=run_name))
+    return redirect(url_for(f"main.show_page", experiment_name=experiment_name, run_name=run_name))
 
 
-
-@main.route(f"/experiment/<experiment_name>/PAGE/<run_name>/show", methods=["GET","POST"])
-def show_page(experiment_name,run_name):
-    exppath = ExperimentPath(header=current_app.config['UPLOAD_FOLDER'].replace("/","\\"),
-                             experiment=experiment_name)
-    
+@main.route(f"/experiment/<experiment_name>/PAGE/<run_name>/show", methods=["GET", "POST"])
+def show_page(experiment_name, run_name):
+    bucket_name = current_app.config['GCS_BUCKET_NAME']
+    exppath = ExperimentPath(bucket_name=bucket_name, experiment_name=experiment_name)
     sample_list = get_samples(exppath)
-    
     datapath = exppath.data[run_name]
 
-    config = json.load(open(datapath.config))
+    config = get_page_config(bucket_name, datapath.analysis_prefix)
 
-    if os.path.exists(datapath.annotation):
-
-        df = pd.read_csv(datapath.annotation,index_col=0)
-
-        fig_html = show_page_full(datapath.raw,config,df)
-
+    if gcs_utils.blob_exists(bucket_name, datapath.annotation):
+        df = gcs_utils.gcs_csv_to_dataframe(bucket_name, datapath.annotation, index_col=0)
+        fig_html = show_page_full(bucket_name, datapath.raw, config, df)
     elif config.get("lane_width"):
-        fig_html = get_page_fig(datapath.raw,lane_width=int(config["lane_width"]),margin=float(config["margin"]))
-    
+        fig_html = get_page_fig(bucket_name, datapath.raw, lane_width=int(config["lane_width"]), margin=float(config["margin"]))
     else:
-        fig_html = get_page_fig(datapath.raw,lane_width=44,margin=0.2)
+        fig_html = get_page_fig(bucket_name, datapath.raw, lane_width=44, margin=0.2)
 
     info = sampling_data(datapath)
-
 
     return render_template(f"show_page.html",
                            experiment_name=experiment_name,
