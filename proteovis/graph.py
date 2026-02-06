@@ -53,7 +53,7 @@ def unicorn_ploty_graph(df, first="UV 1_280", second="Cond", third="pH", forth="
         ),
         yaxis=dict(
             title=axis_label[first],
-            titlefont=dict(color=uv_color),
+            title_font=dict(color=uv_color),
             tickfont=dict(color=uv_color)
         )
     )
@@ -70,7 +70,7 @@ def unicorn_ploty_graph(df, first="UV 1_280", second="Cond", third="pH", forth="
         fig.update_layout(
             yaxis2=dict(
                 title=axis_label[second],
-                titlefont=dict(color=cond_color),
+                title_font=dict(color=cond_color),
                 tickfont=dict(color=cond_color),
                 anchor="x",
                 side="right",
@@ -90,7 +90,7 @@ def unicorn_ploty_graph(df, first="UV 1_280", second="Cond", third="pH", forth="
         fig.update_layout(
             yaxis3=dict(
                 title=axis_label[third],
-                titlefont=dict(color=ph_color),
+                title_font=dict(color=ph_color),
                 tickfont=dict(color=ph_color),
                 anchor="free",
                 side="right",
@@ -111,7 +111,7 @@ def unicorn_ploty_graph(df, first="UV 1_280", second="Cond", third="pH", forth="
         fig.update_layout(
             yaxis4=dict(
                 title=axis_label[forth],
-                titlefont=dict(color=concb_color),
+                title_font=dict(color=concb_color),
                 tickfont=dict(color=concb_color),
                 anchor="free",
                 side="right",
@@ -140,7 +140,7 @@ def unicorn_ploty_graph(df, first="UV 1_280", second="Cond", third="pH", forth="
             },
                   {"yaxis":dict(
             title=axis_label[col],
-            titlefont=dict(color=uv_color),
+            title_font=dict(color=uv_color),
             tickfont=dict(color=uv_color)
         )},
                   [0]],  # トレースのインデックスを指定
@@ -165,7 +165,7 @@ def unicorn_ploty_graph(df, first="UV 1_280", second="Cond", third="pH", forth="
             },
               {'yaxis2': dict(
             title=axis_label[col],
-            titlefont=dict(color=cond_color),
+            title_font=dict(color=cond_color),
             tickfont=dict(color=cond_color),
             anchor="x",
             side="right",
@@ -193,7 +193,7 @@ def unicorn_ploty_graph(df, first="UV 1_280", second="Cond", third="pH", forth="
                 'name': [axis_label[col]]},
                 {'yaxis3':dict(
             title=axis_label[col],
-            titlefont=dict(color=ph_color),
+            title_font=dict(color=ph_color),
             tickfont=dict(color=ph_color),
             anchor="free",
             side="right",
@@ -223,7 +223,7 @@ def unicorn_ploty_graph(df, first="UV 1_280", second="Cond", third="pH", forth="
             },
                   {"yaxis4":dict(
             title=axis_label[col],
-            titlefont=dict(color=concb_color),
+            title_font=dict(color=concb_color),
             tickfont=dict(color=concb_color),
             anchor="free",
             side="right",

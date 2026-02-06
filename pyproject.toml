@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "proteovis"
+version = "1.0.0"
+description = "A Python module for loading and processing chromatography and PAGE data."
+readme = "README.md"
+requires-python = ">=3.6"
+authors = [
+    { name = "Tsuchihashi Ryo", email = "tsuchihashi-ryo@jbpo.or.jp" }
+]
+dependencies = [
+    "xmltodict",
+    "xlsxwriter",
+    "numpy",
+    "pandas",
+    "plotly",
+    "opencv-python",
+    "scipy",
+    "seaborn",
+    "psutil",
+    "requests"
+]

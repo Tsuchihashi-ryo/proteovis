@@ -33,7 +33,8 @@ def get_series_from_data(data, data_key_list,interpolate=True,lightweighting=10)
     df = df.reset_index(names=["mL"])
 
     if interpolate:
-      df = df.interpolate(method='linear')
+      numeric_cols = df.select_dtypes(include=[np.number]).columns
+      df[numeric_cols] = df[numeric_cols].interpolate(method='linear')
 
     if lightweighting:
       light_index = np.array(df.index[df.index%10==0])
@@ -86,7 +87,7 @@ def get_fraction_rectangle(frac_df,palette="rainbow"):
         #return None
 
     # NaNを前の値で埋める(ffill)  →　最初のFractionはそのままNaNになるため、後処理が必要
-    df["Fractions"] = df["Fractions"].fillna(method='ffill')
+    df["Fractions"] = df["Fractions"].ffill()
 
 
     #fraction_starts = df["Fractions"].unique()[1:]
