@@ -14,6 +14,25 @@ A Python module for extracting and visualizing data from ÄKTA/UNICORN and SDS-P
 pip install proteovis
 ```
 
+## Distribution (for developers)
+
+To build and upload the package to PyPI:
+
+1. Install build tools:
+   ```bash
+   pip install build twine
+   ```
+
+2. Build the distribution files:
+   ```bash
+   python -m build
+   ```
+
+3. Upload to PyPI (requires a PyPI account):
+   ```bash
+   python -m twine upload dist/*
+   ```
+
 ## Usage
 
 ### High-level API
