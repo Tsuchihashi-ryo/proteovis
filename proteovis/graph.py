@@ -338,30 +338,31 @@ def annotate_fraction(fig,frac_df,phase=None,rectangle=True,text=True,annotation
    
     max_mL = frac_df["Max_UV"].max()*1.1
     
-  for i,row in phase.iterrows():
-      color = row["Color_code"]#f"rgb({int(palette_phase[i][0]*255)},{int(palette_phase[i][1]*255)},{int(palette_phase[i][2]*255)})"
-      phase_shapes.append(dict(type="rect",
-                      x0=row["Start_mL"], y0=0, x1=row["End_mL"], y1=max_mL,
-                      layer="below",
-                      line=dict(color=color,width=0),
-                      fillcolor=color,
-                      opacity=0.1
-                      ))
-      
-      if "Phase" in phase.columns:
-          phase_texts.append(dict(
-                        x=(row["Start_mL"]+row["End_mL"])/2,
-                        y=max_mL,
-                        xref="x",
-                        yref="y",
-                        text=row["Phase"],
-                        align='center',
-                        showarrow=False,
-                        yanchor='top',
-                        font=dict(
-                        size=12
-                        ),
-                        opacity=1))
+  if phase is not None:
+    for i,row in phase.iterrows():
+        color = row["Color_code"]#f"rgb({int(palette_phase[i][0]*255)},{int(palette_phase[i][1]*255)},{int(palette_phase[i][2]*255)})"
+        phase_shapes.append(dict(type="rect",
+                        x0=row["Start_mL"], y0=0, x1=row["End_mL"], y1=max_mL,
+                        layer="below",
+                        line=dict(color=color,width=0),
+                        fillcolor=color,
+                        opacity=0.1
+                        ))
+
+        if "Phase" in phase.columns:
+            phase_texts.append(dict(
+                          x=(row["Start_mL"]+row["End_mL"])/2,
+                          y=max_mL,
+                          xref="x",
+                          yref="y",
+                          text=row["Phase"],
+                          align='center',
+                          showarrow=False,
+                          yanchor='top',
+                          font=dict(
+                          size=12
+                          ),
+                          opacity=1))
 
 
   current_texts = getattr(fig.layout, 'annotations', [])

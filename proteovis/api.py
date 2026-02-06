@@ -28,6 +28,7 @@ def get_akta_data(path):
     phase_df = pycorn.utils.find_phase(akta_df)
 
     akta_fig = graph.unicorn_ploty_graph(akta_df)
+    akta_fig, _ = graph.annotate_fraction(akta_fig, frac_df, phase_df)
 
     return akta_df, frac_df, phase_df, akta_fig
 
